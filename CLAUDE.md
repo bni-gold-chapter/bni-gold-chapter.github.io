@@ -1,0 +1,39 @@
+# BNI GOLD CHAPTER — New Member Onboarding Tracker
+
+> 給 AI 助手（Claude Code / Codex）的維護指南。
+> 你正在維護 BNI 全鑫白金分會的「新會員出村檢核追蹤表」。
+> 使用者是分會的**導師協調員**（此職務每屆會交接，你的使用者可能不是原開發者）。
+
+## 系統架構（單頁應用，無後端伺服器）
+
+- **`index.html`**：整個網站（HTML+CSS+JS 單檔）。改完 `git push` 即自動部署（GitHub Pages，約 1–3 分鐘生效）。
+- **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
+  `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
+  - `tracker_v7`：進行中檢核資料 `{old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[]}`；狀態 0=未開始 1=完成 2=進行中。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
+  - `archive_v1`：已出村封存（完整檢核快照）
+  - `refdata`：紅綠燈檢視表數據（燈號/引薦/來賓/成交/培訓/一對一），依**姓名**對應
+  - `logs_v1`：操作紀錄
+- **資料來源**：分會紅綠燈檢視表 https://service-2026-937515995986.us-west1.run.app/ （無 CORS，瀏覽器抓不到，必須用腳本抓）
+
+## 常見任務
+
+| 使用者說 | 你要做 |
+|---|---|
+| 「更新數據」 | `node update-refdata.js`（抓紅綠燈檢視表 → 寫入 refdata → 網頁即時連動） |
+| 「某某出村了，封存」 | 參考 `archive-graduates.js` 寫搬遷腳本：把該員欄位快照 push 進 `archive_v1`，從 tracker 移除該欄寫入新版本節點，同步改 index.html 名單與版本號 |
+| 「新增/刪除會員」 | **絕不可直接重置資料**（見下方鐵則），用 `migrate-remove-member.js` 模式搬遷 |
+| 「改檢核項目/樣式」 | 直接改 `index.html`，push |
+
+## ⚠️ 鐵則
+
+1. **增刪會員 = 資料搬遷，不是重置。** 導師們有大量真實勾選與備註。流程：讀 `tracker_vN` → 增/刪對應欄（old/new 每列 + oldNotes/newNotes）→ 寫入 `tracker_v(N+1)` → 改 index.html 的成員陣列、`dfltOld/dfltNew` 索引、`KEY`、`dbRef` → 舊節點留作備份。
+2. **改任何雲端資料前，先 GET 下來存檔備份。**
+3. 打勾符號必須是 `✔︎`（U+2714+U+FE0E），少了變體選擇器 iOS 會顯示成灰色 emoji。
+4. html2canvas 不能截離畫面元素（會無聲卡死），暫存容器要放畫面內。
+5. 部署驗證：push 後輪詢網址內容確認新程式碼字串出現（CDN 有延遲，最多等 3 分鐘）。
+
+## 交接時要移交的東西
+
+1. **GitHub**：此 repo 的擁有權（組織 Owner 或 repo transfer）
+2. **Firebase**：`bni-tracker-b3ef8` 專案的擁有者權限（Google 帳號）
+3. 本檔案與 README.md 就是全部文件，看完即可接手
