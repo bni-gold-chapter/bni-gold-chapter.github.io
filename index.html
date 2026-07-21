@@ -170,19 +170,18 @@
   body.viewonly .cstatus{cursor:default}
   body.viewonly .legend{padding:12px 22px}
   .ronote{color:#ffdf9a;font-size:13.5px;margin-top:6px;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-  .linkall{background:rgba(40,209,124,.08);border-radius:10px}
-  .linkhint{color:var(--mut);font-size:11.5px;line-height:1.7;padding:10px 6px 6px}
-  /* ===== 全體村民公開總覽 ===== */
-  .pstats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
-  .pstat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 18px;text-align:center;font-size:11.5px;color:var(--mut);letter-spacing:1px}
-  .pstat b{display:block;font-family:var(--numfont);font-style:italic;font-weight:800;font-size:26px;line-height:1.1}
-  .psec{margin:22px 0 10px;font-style:italic;font-weight:900;font-size:17px;color:#fff;border-left:4px solid var(--accent);padding-left:10px}
-  .psub{font-size:12.5px;font-weight:400;font-style:normal;color:#8b95a5;margin-left:10px;letter-spacing:1px}
-  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
-  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;position:relative;overflow:hidden;
-    box-shadow:0 8px 26px rgba(0,0,0,.45)}
-  .pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);box-shadow:0 0 12px rgba(225,6,0,.5)}
-  .pdone{font-size:11.5px;color:#c3ccd8;margin-top:6px;font-weight:700}
+  /* ===== 村民唯讀「全部村民總表」 ===== */
+  body.viewall .bar{display:flex}                       /* 蓋掉 viewonly 的隱藏，只留分頁 */
+  body.viewall .bar>*:not(.tabs){display:none}          /* 隱藏所有編輯工具，只保留舊版/新版分頁 */
+  body.viewall .tab{cursor:pointer}
+  body.viewall td.cell{cursor:default}
+  body.viewall td.cell:hover{outline:none;background:transparent}
+  body.viewall .note{cursor:default}
+  body.viewall .mnote{border:none;cursor:default}
+  .roview-banner{margin:10px 22px 0;padding:9px 13px;border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;background:rgba(255,255,255,.02);color:#c3ccd8;font-size:12.5px;line-height:1.6}
+  .roview-banner b{color:#fff;font-style:italic}
+  @media (max-width:768px){ body.viewall .bar{padding:8px 12px} .roview-banner{margin:8px 12px 0;font-size:11.5px} }
   /* ===== Responsive ===== */
   @media (max-width:768px){
     header{padding:13px 14px 12px}
@@ -257,8 +256,8 @@
 <div id="linkmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLinks()">
   <div class="modalbox">
     <div class="modalhead">
-      <b>🔗 村民專屬預覽連結</b>
-      <span class="loghint">傳給新會員本人：只看得到自己的進度，無法編輯</span>
+      <b>🔗 村民共用檢視連結</b>
+      <span class="loghint">傳到分會群組：所有村民都能看到全部新會員的檢核進度，唯讀無法編輯</span>
       <button class="act" onclick="closeLinks()">✕ 關閉</button>
     </div>
     <div id="linklist" class="loglist"></div>
@@ -361,7 +360,7 @@ let CUR='old';
 let MODE = (window.innerWidth<768)?'cards':'table';
 let PICK = 0;
 let MODE_LOCKED = false;
-/* 村民唯讀預覽：?view=<姓名> 只顯示自己、不可編輯 */
+/* 村民唯讀預覽：?view=all 顯示全部村民總表；?view=<姓名> 只顯示自己（舊連結相容）。皆不可編輯 */
 const VIEWNAME = new URLSearchParams(location.search).get('view');
 let VIEWONLY = null;
 let VIEWALL = false;
@@ -408,7 +407,7 @@ function initSync(){
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
-    firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[]; if((CUR==='arc'||VIEWALL)&&!editing) render(); });
+    firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[]; if(CUR==='arc'&&!editing) render(); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
@@ -556,7 +555,17 @@ function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&
 function initViewOnly(){
   if(!VIEWNAME) return;
   document.body.classList.add('viewonly');
-  if(VIEWNAME.toLowerCase()==='all'){ VIEWALL=true; return; }
+  // ?view=all（或 全部 / ALL）→ 全部村民唯讀總表
+  if(/^(all|全部|ALL)$/i.test(VIEWNAME)){
+    VIEWALL=true;
+    document.body.classList.add('viewall');
+    CUR='old'; MODE='table'; MODE_LOCKED=true;
+    const wrap=document.querySelector('.wrap');
+    if(wrap){ const b=document.createElement('div'); b.className='roview-banner';
+      b.innerHTML='👀 <b>村民共用檢視</b>：這裡即時顯示全部新會員的出村檢核進度（唯讀，無法編輯）。上方可切換<b>舊版 / 新版</b>檢核。';
+      wrap.parentNode.insertBefore(b, wrap); }
+    return;
+  }
   let i=OLD_MEMBERS.findIndex(m=>m.name===VIEWNAME);
   if(i>=0){ VIEWONLY={ver:'old',idx:i}; }
   else { i=NEW_MEMBERS.findIndex(m=>m.name===VIEWNAME); if(i>=0) VIEWONLY={ver:'new',idx:i}; }
@@ -568,70 +577,17 @@ function initViewOnly(){
 }
 function openLinks(){
   const base=location.origin+location.pathname;
-  const allUrl=base+'?view=all';
-  let h=`<div class="logrow linkall"><div class="logt" style="color:#7df3b4">🌏 全體村民總覽（推薦，發群組用）</div>
-    <div class="linkrow"><input class="linkbox" readonly value="${allUrl}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${allUrl}')">複製</button></div></div>
-    <div class="linkhint">全體總覽：所有村民互相看得到燈號、完成進度與尚缺項目（不含內部備註）。<br>個人連結：只看得到自己一個人。</div>`;
-  const mk=(ver,arr)=>arr.map(m=>{
-    const url=base+'?view='+encodeURIComponent(m.name);
-    return `<div class="logrow"><div class="logt">${ver}・${m.name}</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${url}')">複製</button></div></div>`;
-  }).join('');
-  document.getElementById('linklist').innerHTML=h+mk('舊版',OLD_MEMBERS)+mk('新版',NEW_MEMBERS);
+  const url=base+'?view=all';
+  document.getElementById('linklist').innerHTML=
+    `<div class="logrow"><div class="logt">全部村民・總表</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${url}')">複製</button></div></div>`
+    +`<div class="logempty" style="padding:16px 6px 4px;text-align:left;font-size:12px;line-height:1.7">把這條連結傳到分會群組，所有村民都能即時看到<b style="color:#c3ccd8">全部新會員</b>的出村檢核進度（含燈號與引薦／來賓／成交缺口）。開啟後為<b style="color:#c3ccd8">唯讀</b>，村民只能看、不能改。</div>`;
   document.getElementById('linkmodal').style.display='flex';
 }
 function closeLinks(){ document.getElementById('linkmodal').style.display='none'; }
 function copyLink(btn,url){ navigator.clipboard.writeText(url).then(()=>{ btn.textContent='已複製 ✓'; setTimeout(()=>btn.textContent='複製',1500); }); }
 
-/* 全體村民公開總覽（唯讀，不顯示內部備註） */
-function renderPublicAll(){
-  const v=document.getElementById('view');
-  let green=0,yellow=0,red=0,gray=0,html='';
-  [['old','舊版檢核',OLD_MEMBERS,OLD_ITEMS],['new','新版檢核',NEW_MEMBERS,NEW_ITEMS]].forEach(([ver,title,members,items])=>{
-    const grid=DATA[ver]||[];
-    html+=`<div class="psec">${title}<span class="psub">${items.length} 項　·　${members.length} 位</span></div><div class="pgrid">`;
-    members.forEach((m,mi)=>{
-      let done=0; grid.forEach(r=>{ if(r[mi]&&r[mi][0]===1) done++; });
-      const pct=items.length?Math.round(done/items.length*100):0;
-      const L=m.light;
-      if(L==null) gray++; else if(L>=70) green++; else if(L>=50) yellow++; else red++;
-      html+=`<div class="pcard">
-        <div class="chead">
-          <div><div class="mname" style="font-size:18px">${m.name}</div>
-            <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
-            <div class="mmentor">導師：<b>${m.mentor}</b></div></div>
-          <div class="light ${lightClass(L)}">${lightLabel(L)}</div>
-        </div>
-        <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}</span></div>
-        <div class="pdone">檢核完成度 ${pct}%</div>
-        ${m.miss?`<div class="miss">尚缺：${m.miss}</div>`:'<div class="miss" style="color:#7df3b4">各項指標已達標 🎉</div>'}
-      </div>`;
-    });
-    html+='</div>';
-  });
-  if(ARCHIVE.length){
-    html+=`<div class="psec" style="border-left-color:#35f59a">🎓 已出村<span class="psub">${ARCHIVE.length} 位</span></div><div class="pgrid">`;
-    ARCHIVE.forEach(a=>{
-      const pct=a.total?Math.round(a.done/a.total*100):0;
-      html+=`<div class="pcard acard">
-        <div class="chead"><div><div class="mname" style="font-size:18px">${a.name} <span class="agrad">已出村</span></div>
-          <div class="mind">${a.ind||''}</div>
-          <div class="mmentor">導師：<b>${a.mentor||''}</b></div></div></div>
-        <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${a.done}/${a.total}</span></div>
-        <div class="pdone">檢核完成度 ${pct}%</div>
-      </div>`;
-    });
-    html+='</div>';
-  }
-  const stat=(n,t,c)=>`<div class="pstat"><b style="color:${c}">${n}</b>${t}</div>`;
-  v.innerHTML=`<div class="pstats">
-      ${stat(green,'綠燈','#35f59a')}${stat(yellow,'黃燈','var(--yellow)')}${stat(red,'紅燈','var(--red)')}
-      ${gray?stat(gray,'未評燈','#9aa6b5'):''}${stat(ARCHIVE.length,'已出村','#fff')}
-    </div>`+html;
-}
-
 function render(){
-  if(VIEWALL){ renderPublicAll(); return; }
-  if(VIEWNAME && !VIEWONLY) return;
+  if(VIEWNAME && !VIEWONLY && !VIEWALL) return;
   if(CUR==='arc'){ renderArchive(); syncControls(); return; }
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   if(PICK>=members.length) PICK=0;
@@ -669,6 +625,7 @@ function renderArchive(){
 }
 
 function tableHTML(){
+  const ro      = VIEWALL;   // 全部村民唯讀總表：不可點擊、不可編輯備註
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
   const grid    = DATA[CUR]; const total=items.length;
@@ -676,6 +633,9 @@ function tableHTML(){
 
   let head='<thead><tr><th style="width:230px">檢核項目</th>';
   members.forEach((m,mi)=>{
+    const noteRow = ro
+      ? ((notesArr()[mi]||'')?`<div class="mnoterow">▸ ${notesArr()[mi]}</div>`:'')
+      : `<div class="mnoterow">▸ <span class="mnote" contenteditable="true" onfocus="mnoteFocus(${mi})" onblur="mnoteBlur(${mi})" oninput="setMemberNote(${mi},this.innerText)">${notesArr()[mi]||''}</span></div>`;
     head+=`<th><div class="mcard">
       <div class="mname">${m.name}</div>
       <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
@@ -683,7 +643,7 @@ function tableHTML(){
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
       <div class="prog" id="prog-${mi}">進度 ${stat(mi)}</div>
       ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
-      <div class="mnoterow">▸ <span class="mnote" contenteditable="true" onfocus="mnoteFocus(${mi})" onblur="mnoteBlur(${mi})" oninput="setMemberNote(${mi},this.innerText)">${notesArr()[mi]||''}</span></div>
+      ${noteRow}
     </div></th>`;
   });
   head+='</tr></thead>';
@@ -694,11 +654,17 @@ function tableHTML(){
         +`<div class="idetail">${it[1]}</div><span class="iwho">負責：${it[2]}</span></td>`;
     members.forEach((m,mi)=>{
       const [s,n]=grid[ii][mi];
-      body+=`<td class="cell ${STCLASS[s]}" onclick="cycle(${ii},${mi})">
+      if(ro){
+        body+=`<td class="cell ${STCLASS[s]}">
+        <span class="sicon">${ICON[s]}</span>
+        ${n?`<span class="note">${n}</span>`:''}</td>`;
+      }else{
+        body+=`<td class="cell ${STCLASS[s]}" onclick="cycle(${ii},${mi})">
         <span class="sicon">${ICON[s]}</span>
         <span class="note" contenteditable="true" onclick="event.stopPropagation()"
           onfocus="noteFocus(${ii},${mi})" onblur="noteBlur(${ii},${mi})"
           oninput="setNote(${ii},${mi},this.innerText)">${n||''}</span></td>`;
+      }
     });
     body+='</tr>';
   });
