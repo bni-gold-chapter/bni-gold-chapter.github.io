@@ -76,10 +76,10 @@
   /* ===== Table ===== */
   .wrap{padding:14px 22px 70px;overflow:auto}
   .tablescroll{overflow-x:auto;border-radius:12px}
-  table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line);table-layout:fixed}
   th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
   thead th{background:#0b1017;position:sticky;top:0;z-index:3;padding:10px 6px;font-size:12px}
-  .mcard{padding:8px;min-width:120px}
+  .mcard{padding:8px;min-height:162px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;word-break:break-word}
   .mname{font-size:16px;font-weight:900;font-style:italic;color:#fff}
   .mind{color:var(--mut);font-size:11px;margin-top:2px}
   .mmentor{font-size:11px;margin-top:3px}
@@ -107,13 +107,14 @@
   .atitle{flex:1;min-width:0}
   .anote{color:#ffdf9a;font-size:11.5px;white-space:nowrap}
   .prog{font-size:11px;color:#c3ccd8;margin-top:6px;font-weight:700}
-  .itemcell{padding:9px;width:230px;max-width:260px}
+  .itemcell{padding:9px;width:230px;word-break:break-word}
+  tbody tr{height:66px}
   .inum{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-family:var(--numfont);font-style:italic;
     background:#0b1017;border:1px solid var(--line);border-radius:50%;font-size:11px;color:#aeb8c4;margin-right:6px}
   .ititle{font-weight:700}
   .idetail{color:var(--mut);font-size:11px;margin-top:2px;margin-left:28px}
   .iwho{display:inline-block;margin-left:28px;margin-top:3px;font-size:10.5px;background:#10263c;color:#8fc6ff;border-radius:4px;padding:1px 6px}
-  td.cell{cursor:pointer;text-align:center;vertical-align:middle;min-width:108px;height:56px;transition:.12s;user-select:none}
+  td.cell{cursor:pointer;text-align:center;vertical-align:middle;height:66px;transition:.12s;user-select:none;overflow:hidden}
   td.cell:hover{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(225,6,0,.05)}
   .st-done{background:rgba(40,209,124,.13)}
   .st-pending{background:rgba(245,179,1,.13)}
@@ -162,6 +163,13 @@
   .logact{font-weight:800;font-style:italic;margin-left:4px}
   .logact.a-done{color:#35f59a} .logact.a-pending{color:var(--yellow)} .logact.a-empty{color:var(--mut)} .logact.a-note{color:#ffdf9a} .logact.a-sys{color:#ff8a8a}
   .logempty{color:var(--mut);text-align:center;padding:34px 10px;font-size:13px;line-height:1.7}
+  .linkrow{display:flex;gap:6px;align-items:center}
+  .linkbox{flex:1;min-width:0;background:#070b10;border:1px solid var(--line);border-radius:8px;color:#8fc6ff;padding:7px 9px;font-size:12px}
+  /* ===== 村民唯讀預覽 ===== */
+  body.viewonly .bar, body.viewonly .hint{display:none}
+  body.viewonly .cstatus{cursor:default}
+  body.viewonly .legend{padding:12px 22px}
+  .ronote{color:#ffdf9a;font-size:13.5px;margin-top:6px;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
   /* ===== Responsive ===== */
   @media (max-width:768px){
     header{padding:13px 14px 12px}
@@ -212,6 +220,7 @@
   <span id="savetag" class="savetag">✔ 已儲存</span>
   <button class="act" id="userbtn" onclick="setUser()">👤 操作者</button>
   <button class="act" onclick="openLog()">📜 操作紀錄</button>
+  <button class="act" onclick="openLinks()">🔗 村民連結</button>
   <button class="act" onclick="exportImage()">🖼 匯出整表圖片</button>
   <button class="act" onclick="setupSync()">☁ 同步設定</button>
   <button class="act" onclick="exportJSON()">⬇ 備份</button>
@@ -229,6 +238,17 @@
       <button class="act" onclick="closeLog()">✕ 關閉</button>
     </div>
     <div id="loglist" class="loglist"></div>
+  </div>
+</div>
+
+<div id="linkmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLinks()">
+  <div class="modalbox">
+    <div class="modalhead">
+      <b>🔗 村民專屬預覽連結</b>
+      <span class="loghint">傳給新會員本人：只看得到自己的進度，無法編輯</span>
+      <button class="act" onclick="closeLinks()">✕ 關閉</button>
+    </div>
+    <div id="linklist" class="loglist"></div>
   </div>
 </div>
 
@@ -328,6 +348,9 @@ let CUR='old';
 let MODE = (window.innerWidth<768)?'cards':'table';
 let PICK = 0;
 let MODE_LOCKED = false;
+/* 村民唯讀預覽：?view=<姓名> 只顯示自己、不可編輯 */
+const VIEWNAME = new URLSearchParams(location.search).get('view');
+let VIEWONLY = null;
 
 function defaults(){ return {old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||'')}; }
 function normalizeData(d){
@@ -451,14 +474,22 @@ function renderLog(){
 
 /* ====== 匯出整表 JPG ====== */
 async function exportImage(){
-  if(CUR==='arc'){ alert('封存頁不支援匯出整表圖片，請先切換到舊版或新版檢核。'); return; }
   if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const btns=document.querySelectorAll('.bar button'); btns.forEach(b=>b.disabled=true);
+  // 同一張圖同時輸出「舊版 + 新版」
+  const keep=CUR;
+  CUR='old'; const oldTable=tableHTML();
+  CUR='new'; const newTable=tableHTML();
+  CUR=keep;
+  const sec=(t,n)=>`<div style="font:italic 900 17px/1.3 'Noto Sans TC',sans-serif;color:#fff;margin:18px 0 8px;padding-left:10px;border-left:4px solid #e10600">${t}<span style="color:#8b95a5;font-size:13px;font-style:normal;font-weight:400">　${n}</span></div>`;
   const box=document.createElement('div');
   box.style.cssText='position:fixed;left:0;top:0;z-index:9999;background:#000;padding:22px;overflow:auto;width:100vw;height:100vh;font-family:"Noto Sans TC",sans-serif';
-  box.innerHTML='<div style="font:italic 900 22px/1.3 \'Noto Sans TC\',sans-serif;color:#fff;margin-bottom:4px">🏁 BNI 全鑫白金分會 — 新會員出村檢核追蹤表</div>'
-    +'<div style="color:#8b95a5;font-size:13px;margin-bottom:14px">'+(CUR==='old'?'舊版檢核（15 項）':'新版檢核（17 項）')+'　｜　匯出時間：'+fmtT(Date.now())+'</div>'
-    +'<div id="capwrap" style="display:inline-block">'+tableHTML()+'</div>';
+  box.innerHTML='<div id="capwrap" style="display:inline-block;min-width:1100px">'
+    +'<div style="font:italic 900 22px/1.3 \'Noto Sans TC\',sans-serif;color:#fff;margin-bottom:4px">🏁 BNI GOLD CHAPTER — 新會員出村檢核追蹤表</div>'
+    +'<div style="color:#8b95a5;font-size:13px">匯出時間：'+fmtT(Date.now())+'</div>'
+    +sec('舊版檢核','15 項')+oldTable
+    +sec('新版檢核','17 項')+newTable
+    +'</div>';
   document.body.appendChild(box);
   const cap=box.querySelector('#capwrap');
   try{
@@ -466,7 +497,7 @@ async function exportImage(){
       html2canvas(cap,{backgroundColor:'#000',scale:2,logging:false,useCORS:true}),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('產生逾時，請再試一次')),25000))
     ]);
-    const fname='BNI檢核追蹤_'+(CUR==='old'?'舊版':'新版')+'_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
+    const fname='BNI檢核追蹤_舊版+新版_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
     const done=(blob)=>{
       if(!blob){ alert('產生圖片失敗，請再試一次。'); return; }
       const url=URL.createObjectURL(blob);
@@ -507,7 +538,33 @@ function applyRefdata(rd){
 }
 function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&REFMETA){ el.textContent='｜ 數據來源：紅綠燈檢視表 · 更新 '+(REFMETA.updatedAt||''); } }
 
+/* ====== 村民唯讀預覽 ====== */
+function initViewOnly(){
+  if(!VIEWNAME) return;
+  document.body.classList.add('viewonly');
+  let i=OLD_MEMBERS.findIndex(m=>m.name===VIEWNAME);
+  if(i>=0){ VIEWONLY={ver:'old',idx:i}; }
+  else { i=NEW_MEMBERS.findIndex(m=>m.name===VIEWNAME); if(i>=0) VIEWONLY={ver:'new',idx:i}; }
+  if(!VIEWONLY){
+    document.getElementById('view').innerHTML='<div class="logempty">找不到「'+VIEWNAME+'」的資料。<br>請向導師協調員索取正確的專屬連結。</div>';
+    return;
+  }
+  CUR=VIEWONLY.ver; PICK=VIEWONLY.idx; MODE='cards'; MODE_LOCKED=true;
+}
+function openLinks(){
+  const base=location.origin+location.pathname;
+  const mk=(ver,arr)=>arr.map(m=>{
+    const url=base+'?view='+encodeURIComponent(m.name);
+    return `<div class="logrow"><div class="logt">${ver}・${m.name}</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${url}')">複製</button></div></div>`;
+  }).join('');
+  document.getElementById('linklist').innerHTML=mk('舊版',OLD_MEMBERS)+mk('新版',NEW_MEMBERS);
+  document.getElementById('linkmodal').style.display='flex';
+}
+function closeLinks(){ document.getElementById('linkmodal').style.display='none'; }
+function copyLink(btn,url){ navigator.clipboard.writeText(url).then(()=>{ btn.textContent='已複製 ✓'; setTimeout(()=>btn.textContent='複製',1500); }); }
+
 function render(){
+  if(VIEWNAME && !VIEWONLY) return;
   if(CUR==='arc'){ renderArchive(); syncControls(); return; }
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   if(PICK>=members.length) PICK=0;
@@ -550,7 +607,7 @@ function tableHTML(){
   const grid    = DATA[CUR]; const total=items.length;
   const stat=mi=>{ let d=0; grid.forEach(r=>{ if(r[mi][0]===1) d++; }); return d+'/'+total+' ・ '+Math.round(d/total*100)+'%'; };
 
-  let head='<thead><tr><th style="min-width:200px">檢核項目</th>';
+  let head='<thead><tr><th style="width:230px">檢核項目</th>';
   members.forEach((m,mi)=>{
     head+=`<th><div class="mcard">
       <div class="mname">${m.name}</div>
@@ -593,6 +650,7 @@ function renderCards(){
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
   const grid    = DATA[CUR];
+  const ro      = !!VIEWONLY;
   const m=members[PICK];
   let done=0; grid.forEach(row=>{ if(row[PICK][0]===1) done++; });
   const pct=Math.round(done/items.length*100);
@@ -604,17 +662,21 @@ function renderCards(){
     </div>
     <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
     ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
-    <input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr()[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus(${PICK})" onblur="mnoteBlur(${PICK})" oninput="setMemberNote(${PICK},this.value)">
+    ${ro
+      ? ((notesArr()[PICK]||'')?`<div class="miss" style="color:#9af0bd">▸ ${notesArr()[PICK]}</div>`:'')
+      : `<input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr()[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus(${PICK})" onblur="mnoteBlur(${PICK})" oninput="setMemberNote(${PICK},this.value)">`}
   </div>`;
   items.forEach((it,ii)=>{
     const [s,n]=grid[ii][PICK];
     h+=`<div class="crow">
-      <div class="cstatus ${STCLASS[s]}" onclick="cycle(${ii},${PICK})"><span class="sicon">${ICON[s]}</span></div>
+      <div class="cstatus ${STCLASS[s]}" ${ro?'':`onclick="cycle(${ii},${PICK})"`}><span class="sicon">${ICON[s]}</span></div>
       <div class="cinfo">
         <div><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span></div>
         <div class="idetail2">${it[1]}　·　負責：${it[2]}</div>
-        <input class="cnote" placeholder="備註 / 日期（如 6/26、7/30前）" value="${(n||'').replace(/"/g,'&quot;')}"
-          onfocus="noteFocus(${ii},${PICK})" onblur="noteBlur(${ii},${PICK})" oninput="setNote(${ii},${PICK},this.value)">
+        ${ro
+          ? (n?`<div class="ronote">📝 ${n}</div>`:'')
+          : `<input class="cnote" placeholder="備註 / 日期（如 6/26、7/30前）" value="${(n||'').replace(/"/g,'&quot;')}"
+              onfocus="noteFocus(${ii},${PICK})" onblur="noteBlur(${ii},${PICK})" oninput="setNote(${ii},${PICK},this.value)">`}
       </div>
     </div>`;
   });
@@ -678,6 +740,7 @@ function resetAll(){
   if(confirm('確定要清除所有更新、回到預設帶入狀態嗎?(雲端共用模式會同步清除給所有人)')){ DATA=defaults(); addSysLog('重設全部進度為預設值'); save(); render(); }
 }
 
+initViewOnly();
 render();
 syncUserBtn();
 initSync();
