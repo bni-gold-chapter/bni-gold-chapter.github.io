@@ -34,6 +34,8 @@
 
 ## 交接時要移交的東西
 
-1. **GitHub**：此 repo 的擁有權（組織 Owner 或 repo transfer）
+網站網址：**https://bni-gold-chapter.github.io/** （GitHub 組織 `bni-gold-chapter`，網址不含個人帳號，交接後不變）
+
+1. **GitHub**：組織 `bni-gold-chapter` 的 Owner 權限（新任加入 → 舊任退出，網址與資料都不動）
 2. **Firebase**：`bni-tracker-b3ef8` 專案的擁有者權限（Google 帳號）
 3. 本檔案與 README.md 就是全部文件，看完即可接手
