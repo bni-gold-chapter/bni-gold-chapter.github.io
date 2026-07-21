@@ -96,6 +96,16 @@
   .mnote:focus{border-style:solid;border-color:var(--accent);background:#0a0e13;color:#caffe0}
   .mnote:empty::before{content:"＋出村備註";color:#5a6675}
   .mnote-c{margin-top:10px;color:#9af0bd}
+  /* ===== 已出村封存 ===== */
+  .acard::before{background:var(--green);box-shadow:0 0 14px rgba(40,209,124,.6)}
+  .agrad{font-size:11px;background:var(--green-d);color:#7df3b4;border:1px solid var(--green);border-radius:5px;padding:1px 7px;vertical-align:middle;font-style:normal;font-weight:700}
+  .alist{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+  .arow{display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.045)}
+  .arow:last-child{border-bottom:none}
+  .aicon{width:20px;text-align:center;font-weight:900;background:none!important}
+  .aicon.st-done{color:#35f59a} .aicon.st-pending{color:var(--yellow)} .aicon.st-empty{color:var(--gray)}
+  .atitle{flex:1;min-width:0}
+  .anote{color:#ffdf9a;font-size:11.5px;white-space:nowrap}
   .prog{font-size:11px;color:#c3ccd8;margin-top:6px;font-weight:700}
   .itemcell{padding:9px;width:230px;max-width:260px}
   .inum{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-family:var(--numfont);font-style:italic;
@@ -193,6 +203,7 @@
   <div class="tabs">
     <div class="tab active" data-v="old" onclick="switchVer('old')">舊版檢核（15 項）</div>
     <div class="tab" data-v="new" onclick="switchVer('new')">新版檢核（17 項）</div>
+    <div class="tab" data-v="arc" onclick="switchVer('arc')">📦 已出村封存</div>
   </div>
   <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
   <button class="act" id="modebtn" onclick="toggleMode()">📱 單人檢視</button>
@@ -241,7 +252,6 @@
 /* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
 const OLD_MEMBERS = [
   {name:'陳雨震', npc:'飾品舖', ind:'防水工程', mentor:'林淙仁', light:65, join:'114.11.27', miss:'引薦 11次、來賓 13位、成交 38萬', note:'預計七月出村'},
-  {name:'洪倧勝', npc:'', ind:'鋁門窗', mentor:'陳廷澐', light:70, join:'114.12.11', miss:'來賓 8位、成交 80萬', note:'6/11 完成出村'},
   {name:'夏振異', npc:'', ind:'拆除工程', mentor:'林淙仁', light:75, join:'115.02.26', miss:'成交 79萬（來賓已達標）', note:'6/11 完成出村'},
   {name:'蔡家銘', npc:'', ind:'輕隔間', mentor:'李哲維', light:70, join:'115.02.26', miss:'來賓 3位、成交 63萬', note:''},
 ];
@@ -265,13 +275,9 @@ const OLD_ITEMS = [
 function dfltOld(){
   const g=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[1,'']));
   const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
-  // 成員索引：陳雨震0 洪倧勝1 夏振異2 蔡家銘3
-  set(6,1,2,'6/26五');                                          // 洪 第二次導讀
-  set(7,1,2,'7/7前');                                           // 洪 與第二位導師121
-  set(8,0,2,'一位'); set(8,2,2,'一位');                          // 陳/夏 擇二121
-  set(11,1,2,'7/15前');                                         // 洪 網頁版Connect
-  set(12,1,2,'7/30前');                                         // 洪 與導師協調員121
-  set(13,1,2,'時間待確認'); set(13,2,2,'7/30前'); set(13,3,0);   // 洪/夏 與董顧121、蔡未開始
+  // 成員索引：陳雨震0 夏振異1 蔡家銘2
+  set(8,0,2,'一位'); set(8,1,2,'一位');                          // 陳/夏 擇二121
+  set(13,1,2,'7/30前'); set(13,2,0);                             // 夏 與董顧121、蔡未開始
   for(let m=0;m<OLD_MEMBERS.length;m++) set(14,m,0);            // 報名5分鐘簡報 預設未開始
   return g;
 }
@@ -316,7 +322,7 @@ function dfltNew(){
 }
 
 /* ====== 狀態管理 ====== */
-const KEY='bni_new_member_tracker_v6';
+const KEY='bni_new_member_tracker_v7';
 let DATA = load();
 let CUR='old';
 let MODE = (window.innerWidth<768)?'cards':'table';
@@ -347,6 +353,7 @@ const FIREBASE_CONFIG = {
 };
 let SHARED=false, dbRef=null, logRef=null, applyingRemote=false, editing=false, writeTimer=null;
 let LOG=[]; try{ LOG=JSON.parse(localStorage.getItem('bni_log'))||[]; }catch(e){ LOG=[]; }
+let ARCHIVE=[];
 let logOpen=false, noteFocusVal=null;
 
 function getCfg(){
@@ -360,10 +367,11 @@ function initSync(){
   if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
   try{
     firebase.initializeApp(cfg);
-    dbRef = firebase.database().ref('tracker_v6');
+    dbRef = firebase.database().ref('tracker_v7');
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
+    firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[]; if(CUR==='arc'&&!editing) render(); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
@@ -443,6 +451,7 @@ function renderLog(){
 
 /* ====== 匯出整表 JPG ====== */
 async function exportImage(){
+  if(CUR==='arc'){ alert('封存頁不支援匯出整表圖片，請先切換到舊版或新版檢核。'); return; }
   if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const btns=document.querySelectorAll('.bar button'); btns.forEach(b=>b.disabled=true);
   const box=document.createElement('div');
@@ -499,10 +508,40 @@ function applyRefdata(rd){
 function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&REFMETA){ el.textContent='｜ 數據來源：紅綠燈檢視表 · 更新 '+(REFMETA.updatedAt||''); } }
 
 function render(){
+  if(CUR==='arc'){ renderArchive(); syncControls(); return; }
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   if(PICK>=members.length) PICK=0;
   if(MODE==='cards') renderCards(); else renderTable();
   syncControls();
+}
+
+function renderArchive(){
+  const v=document.getElementById('view');
+  if(!ARCHIVE.length){
+    v.innerHTML='<div class="logempty">目前沒有已出村的封存紀錄。<br>會員完成出村後，跟我說一聲就能把他移入這裡，完整保存當時的檢核紀錄。</div>';
+    return;
+  }
+  v.innerHTML=ARCHIVE.map(a=>{
+    const items=(a.ver==='old')?OLD_ITEMS:NEW_ITEMS;
+    const pct=a.total?Math.round(a.done/a.total*100):0;
+    const rows=(a.items||[]).map((c,i)=>{
+      const s=(c&&c[0])||0, n=(c&&c[1])||'';
+      const label=items[i]?items[i][0]:('項目 '+(i+1));
+      return `<div class="arow"><span class="aicon ${STCLASS[s]}">${ICON[s]}</span><span class="atitle">${i+1}. ${label}</span>${n?`<span class="anote">${n}</span>`:''}</div>`;
+    }).join('');
+    return `<div class="ccard acard">
+      <div class="chead">
+        <div><div class="mname" style="font-size:20px">${a.name} <span class="agrad">已出村</span></div>
+          <div class="mind">${a.ind||''}${a.npc?'｜'+a.npc:''}　導師：<b style="color:#7fc4ff">${a.mentor||''}</b>　${a.ver==='old'?'舊版 15 項':'新版 17 項'}</div></div>
+        <div class="light ${lightClass(a.light)}">${lightLabel(a.light)}</div>
+      </div>
+      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${a.done}/${a.total}（${pct}%）</span></div>
+      ${a.note?`<div class="miss" style="color:#9af0bd">▸ ${a.note}</div>`:''}
+      ${a.miss?`<div class="miss">出村時尚缺：${a.miss}</div>`:''}
+      <div class="miss" style="color:#8b95a5">封存時間：${a.archivedAt||''}</div>
+      <div class="alist">${rows}</div>
+    </div>`;
+  }).join('');
 }
 
 function tableHTML(){
@@ -583,15 +622,17 @@ function renderCards(){
 }
 
 function syncControls(){
-  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const isArc = CUR==='arc';
   const sel=document.getElementById('mpick');
+  const b=document.getElementById('modebtn');
+  if(isArc){ if(sel) sel.style.display='none'; if(b) b.style.display='none'; return; }
+  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   if(sel){
     sel.innerHTML=members.map((mm,i)=>`<option value="${i}">${mm.name}</option>`).join('');
     sel.value=PICK;
     sel.style.display = MODE==='cards'?'':'none';
   }
-  const b=document.getElementById('modebtn');
-  if(b) b.textContent = MODE==='cards'?'📊 整表檢視':'📱 單人檢視';
+  if(b){ b.style.display=''; b.textContent = MODE==='cards'?'📊 整表檢視':'📱 單人檢視'; }
 }
 function pickMember(v){ PICK=+v; render(); }
 function toggleMode(){ MODE=(MODE==='cards'?'table':'cards'); MODE_LOCKED=true; render(); }
