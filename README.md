@@ -7,7 +7,7 @@ BNI 全鑫白金分會．導師協調員監督用的線上檢核追蹤系統。
 
 | 用途 | 連結 |
 |---|---|
-| **導師使用（發給大家的）** | https://a7709393.github.io/bni-tracker/ |
+| **導師使用（發給大家的）** | https://nicko751031-a11y.github.io/BNI-GOLD-CHAPTER/ |
 | 資料來源（分會紅綠燈檢視表） | https://service-2026-937515995986.us-west1.run.app/ |
 
 ---
