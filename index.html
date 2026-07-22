@@ -286,6 +286,20 @@
   </div>
 </div>
 
+<div id="usermodal" class="modal" style="display:none;z-index:60" onclick="if(event.target===this)cancelUser()">
+  <div class="modalbox" style="max-width:430px">
+    <div class="modalhead">
+      <b>👤 請輸入操作者姓名</b>
+      <span class="loghint">所有勾選與備註都會記錄是誰改的；此裝置會自動記住，之後不再詢問</span>
+      <button class="act" id="userclose" onclick="cancelUser()">✕ 關閉</button>
+    </div>
+    <div style="padding:16px;display:flex;gap:8px">
+      <input id="userinput" class="linkbox" style="font-size:16px;color:#fff;padding:11px 12px" placeholder="你的名字（例：林淙仁）" onkeydown="if(event.key==='Enter')confirmUser()">
+      <button class="act" onclick="confirmUser()" style="white-space:nowrap;font-weight:700">確定</button>
+    </div>
+  </div>
+</div>
+
 <div id="linkmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLinks()">
   <div class="modalbox">
     <div class="modalhead">
@@ -485,7 +499,26 @@ function save(){
 function pad2(n){ return String(n).padStart(2,'0'); }
 function fmtT(t){ const d=new Date(t); return d.getFullYear()+'/'+pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds()); }
 function getUser(){ return localStorage.getItem('bni_user')||'匿名'; }
-function setUser(){ const cur=getUser(); const v=prompt('輸入你的名字（會記錄在操作紀錄中，方便辨識是誰改的）：', cur==='匿名'?'':cur); if(v!=null){ localStorage.setItem('bni_user', v.trim()||'匿名'); syncUserBtn(); } }
+/* 強制填寫操作者：首次進入必填，同裝置自動記住（localStorage），村民唯讀連結不詢問 */
+let USER_FORCED=false;
+function hasUser(){ const u=localStorage.getItem('bni_user'); return !!(u&&u.trim()&&u!=='匿名'); }
+function openUserModal(force){
+  USER_FORCED=!!force;
+  document.getElementById('userclose').style.display=force?'none':'';
+  const inp=document.getElementById('userinput');
+  inp.value=hasUser()?getUser():'';
+  document.getElementById('usermodal').style.display='flex';
+  setTimeout(()=>inp.focus(),60);
+}
+function cancelUser(){ if(USER_FORCED) return; document.getElementById('usermodal').style.display='none'; }
+function confirmUser(){
+  const v=document.getElementById('userinput').value.trim();
+  if(!v){ alert('請輸入姓名，操作紀錄才能辨識是誰修改的。'); return; }
+  localStorage.setItem('bni_user', v); syncUserBtn();
+  USER_FORCED=false; document.getElementById('usermodal').style.display='none';
+}
+function setUser(){ openUserModal(false); }
+function requireUser(){ if(!VIEWNAME && !hasUser()) openUserModal(true); }
 function syncUserBtn(){ const el=document.getElementById('usernow'); if(el) el.textContent='目前：'+getUser(); }
 function openTools(){ document.getElementById('toolmodal').style.display='flex'; }
 function closeTools(){ document.getElementById('toolmodal').style.display='none'; }
@@ -849,6 +882,7 @@ function resetAll(){
 initViewOnly();
 render();
 syncUserBtn();
+requireUser();
 initSync();
 </script>
 </body>
