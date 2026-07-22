@@ -20,7 +20,8 @@
 - **`index.html`**：整個網站（HTML+CSS+JS 單檔）。改完 `git push` 即自動部署（GitHub Pages，約 1–3 分鐘生效）。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
-  - `tracker_v7`：進行中檢核資料 `{old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[]}`；狀態 0=未開始 1=完成 2=進行中。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
+  - `tracker_v7`：進行中檢核資料 `{mlist:1, old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[], oldMembers:[…], newMembers:[…]}`；狀態 0=未開始 1=完成 2=進行中。**2026/07 起名單（oldMembers/newMembers）存於節點內**，網頁協調員模式可直接封存／新增，不再需要為名單異動 bump 版本；index.html 內的名單陣列僅作首次種子。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
+  - `backups_v1`：協調員每次「完成出村／新增村民」前的自動全量備份（含時間、操作者、原因）
   - `archive_v1`：已出村封存（完整檢核快照）
   - `refdata`：紅綠燈檢視表數據（燈號/引薦/來賓/成交/培訓/一對一），依**姓名**對應
   - `logs_v1`：操作紀錄
@@ -31,8 +32,8 @@
 | 使用者說 | 你要做 |
 |---|---|
 | 「更新數據」 | `node update-refdata.js`（抓紅綠燈檢視表 → 寫入 refdata → 網頁即時連動） |
-| 「某某出村了，封存」 | 參考 `archive-graduates.js` 寫搬遷腳本：把該員欄位快照 push 進 `archive_v1`，從 tracker 移除該欄寫入新版本節點，同步改 index.html 名單與版本號 |
-| 「新增/刪除會員」 | **絕不可直接重置資料**（見下方鐵則），用 `migrate-remove-member.js` 模式搬遷 |
+| 「某某出村了，封存」 | **網頁即可操作**（2026/07 起）：⚙️ 工具 → 協調員模式（密碼 8888）→ 該員 100% 時卡片上的「🎓 完成出村」，會自動備份到 `backups_v1` 再搬進 `archive_v1`。亦可用 `archive-graduates.js` 腳本模式 |
+| 「新增會員」 | **網頁即可操作**：協調員模式 → 總覽底部「➕ 新增村民」表單（加入新版 17 項）。刪除（非出村）仍用 `migrate-remove-member.js` 模式搬遷 |
 | 「改檢核項目/樣式」 | 直接改 `index.html`，push |
 
 ## ⚠️ 鐵則
