@@ -241,8 +241,7 @@
 
 <div class="bar">
   <div class="tabs">
-    <div class="tab active" data-v="old" onclick="switchVer('old')">舊版檢核（15 項）</div>
-    <div class="tab" data-v="new" onclick="switchVer('new')">新版檢核（17 項）</div>
+    <div class="tab active" data-v="ovw" onclick="switchVer('ovw')">🏁 全體進度</div>
     <div class="tab" data-v="arc" onclick="switchVer('arc')">📦 已出村封存</div>
   </div>
   <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
@@ -403,7 +402,7 @@ function dfltNew(){
 /* ====== 狀態管理 ====== */
 const KEY='bni_new_member_tracker_v7';
 let DATA = load();
-let CUR='old';
+let CUR='ovw';   /* 'ovw'=全體進度（合併排序）、'arc'=封存；編輯單人時暫切為 'old'/'new' */
 let MODE = (window.innerWidth<768)?'cards':'table';
 let PICK = 0;
 let MODE_LOCKED = false;
@@ -411,7 +410,8 @@ let MODE_LOCKED = false;
 const VIEWNAME = new URLSearchParams(location.search).get('view');
 let VIEWONLY = null;
 let VIEWALL = false;
-let ALLSEL = null;   /* 全體總覽：null=卡片牆；{ver,idx}=點進某人的完整檢核 */
+let ALLSEL = null;   /* 村民總覽：null=卡片牆；{ver,idx}=點進某人的完整檢核 */
+let EDITSEL = null;  /* 編輯版總覽：null=卡片牆；{ver,idx}=點進某人的可編輯檢核 */
 
 function defaults(){ return {old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||'')}; }
 function normalizeData(d){
@@ -534,13 +534,13 @@ function addLog(ver,mi,ii,act){
   pushLog({t:Date.now(),who:getUser(),ver:(ver==='old'?'舊版':'新版'),member:members[mi].name,item:items[ii][0],act:act});
 }
 function addSysLog(act){ pushLog({t:Date.now(),who:getUser(),ver:'系統',member:'',item:'',act:act}); }
-function noteFocus(ii,mi){ editing=true; noteFocusVal=(DATA[CUR][ii][mi][1]||''); }
-function noteBlur(ii,mi){ editing=false; const v=(DATA[CUR][ii][mi][1]||''); if(v!==noteFocusVal){ addLog(CUR,mi,ii, v?('備註：'+v):'清除備註'); } }
-function notesArr(){ return DATA[CUR==='old'?'oldNotes':'newNotes']; }
+function noteFocus(ver,ii,mi){ editing=true; noteFocusVal=(DATA[ver][ii][mi][1]||''); }
+function noteBlur(ver,ii,mi){ editing=false; const v=(DATA[ver][ii][mi][1]||''); if(v!==noteFocusVal){ addLog(ver,mi,ii, v?('備註：'+v):'清除備註'); } }
+function notesArr(ver){ return DATA[ver==='old'?'oldNotes':'newNotes']; }
 let mnoteFocusVal=null;
-function mnoteFocus(mi){ editing=true; mnoteFocusVal=(notesArr()[mi]||''); }
-function mnoteBlur(mi){ editing=false; const v=(notesArr()[mi]||''); if(v!==mnoteFocusVal){ const members=CUR==='old'?OLD_MEMBERS:NEW_MEMBERS; pushLog({t:Date.now(),who:getUser(),ver:(CUR==='old'?'舊版':'新版'),member:members[mi].name,item:'會員備註',act:v?('備註：'+v):'清除備註'}); } }
-function setMemberNote(mi,val){ notesArr()[mi]=val.trim(); save(); }
+function mnoteFocus(ver,mi){ editing=true; mnoteFocusVal=(notesArr(ver)[mi]||''); }
+function mnoteBlur(ver,mi){ editing=false; const v=(notesArr(ver)[mi]||''); if(v!==mnoteFocusVal){ const members=ver==='old'?OLD_MEMBERS:NEW_MEMBERS; pushLog({t:Date.now(),who:getUser(),ver:(ver==='old'?'舊版':'新版'),member:members[mi].name,item:'會員備註',act:v?('備註：'+v):'清除備註'}); } }
+function setMemberNote(ver,mi,val){ notesArr(ver)[mi]=val.trim(); save(); }
 function openLog(){ logOpen=true; document.getElementById('logmodal').style.display='flex'; renderLog(); }
 function closeLog(){ logOpen=false; document.getElementById('logmodal').style.display='none'; }
 function renderLog(){
@@ -559,10 +559,8 @@ async function exportImage(){
   if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const btns=document.querySelectorAll('.bar button'); btns.forEach(b=>b.disabled=true);
   // 同一張圖同時輸出「舊版 + 新版」
-  const keep=CUR;
-  CUR='old'; const oldTable=tableHTML();
-  CUR='new'; const newTable=tableHTML();
-  CUR=keep;
+  const oldTable=tableHTML('old');
+  const newTable=tableHTML('new');
   const sec=(t,n)=>`<div style="font:italic 900 17px/1.3 'Noto Sans TC',sans-serif;color:#fff;margin:18px 0 8px;padding-left:10px;border-left:4px solid #e10600">${t}<span style="color:#8b95a5;font-size:13px;font-style:normal;font-weight:400">　${n}</span></div>`;
   const box=document.createElement('div');
   box.style.cssText='position:fixed;left:0;top:0;z-index:9999;background:#000;padding:22px;overflow:auto;width:100vw;height:100vh;font-family:"Noto Sans TC",sans-serif';
@@ -665,15 +663,15 @@ function buildAllList(){
   return rows;
 }
 function barClass(v){ if(v==null) return ''; if(v>=70) return 'Lg'; if(v>=50) return 'Ly'; return 'Lr'; }
-function renderPublicOverview(){
+function renderOverview(editable){
   const rows=buildAllList();
   const stamp=(REFMETA&&REFMETA.updatedAt)?('　·　數據更新 '+REFMETA.updatedAt):'';
   const head=`<div class="allhead">
     <div class="allh-title">🏁 全體新會員 出村進度總覽</div>
-    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　點任一人看完整檢核內容${stamp}</div>
+    <div class="allh-sub">舊版＋新版合併，依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div>
   </div>`;
   const cards=rows.map((r,rank)=>`
-    <div class="allcard ${barClass(r.m.light)}" onclick="openAllDetail('${r.ver}',${r.idx})">
+    <div class="allcard ${barClass(r.m.light)}" onclick="${editable?`openEditDetail('${r.ver}',${r.idx})`:`openAllDetail('${r.ver}',${r.idx})`}">
       <div class="allrank">#${rank+1}</div>
       <div class="mname">${r.m.name}<span class="verpill">${r.ver==='old'?'舊 15':'新 17'}</span></div>
       <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b style="color:#7fc4ff">${r.m.mentor}</b></div>
@@ -681,20 +679,22 @@ function renderPublicOverview(){
       <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
       <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${r.pct}%"></div></div><span>${r.done}/${r.total}（${r.pct}%）</span></div>
       ${r.m.miss?`<div class="miss">缺：${r.m.miss}</div>`:''}
-      <div class="allmore">看完整檢核 ›</div>
+      <div class="allmore">${editable?'進入編輯 ›':'看完整檢核 ›'}</div>
     </div>`).join('');
   document.getElementById('view').innerHTML=head+'<div class="allgrid">'+cards+'</div>';
 }
 function openAllDetail(ver,idx){ ALLSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
 function closeAllDetail(){ ALLSEL=null; render(); window.scrollTo(0,0); }
+function openEditDetail(ver,idx){ EDITSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
+function closeEditDetail(){ EDITSEL=null; CUR='ovw'; render(); window.scrollTo(0,0); }
 
 function render(){
   if(VIEWNAME && !VIEWONLY && !VIEWALL) return;
-  if(VIEWALL){ if(ALLSEL){ renderCards(); } else { renderPublicOverview(); } return; }
+  if(VIEWALL){ if(ALLSEL){ renderCards(); } else { renderOverview(false); } return; }
+  if(VIEWONLY){ renderCards(); return; }
   if(CUR==='arc'){ renderArchive(); syncControls(); return; }
-  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
-  if(PICK>=members.length) PICK=0;
-  if(MODE==='cards') renderCards(); else renderTable();
+  if(EDITSEL){ renderCards(); syncControls(); return; }
+  if(MODE==='cards') renderOverview(true); else renderTablesBoth();
   syncControls();
 }
 
@@ -727,25 +727,29 @@ function renderArchive(){
   }).join('');
 }
 
-function tableHTML(){
-  const ro      = VIEWALL;   // 全部村民唯讀總表：不可點擊、不可編輯備註
-  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
-  const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
-  const grid    = DATA[CUR]; const total=items.length;
-  const stat=mi=>{ let d=0; grid.forEach(r=>{ if(r[mi][0]===1) d++; }); return d+'/'+total+' ・ '+Math.round(d/total*100)+'%'; };
+function tableHTML(V){
+  const ro      = VIEWALL;   // 村民唯讀：不可點擊、不可編輯備註
+  const members = V==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const items   = V==='old'?OLD_ITEMS:NEW_ITEMS;
+  const grid    = DATA[V]; const total=items.length;
+  const doneOf=mi=>{ let d=0; grid.forEach(r=>{ if(r[mi][0]===1) d++; }); return d; };
+  const stat=mi=>{ const d=doneOf(mi); return d+'/'+total+' ・ '+Math.round(d/total*100)+'%'; };
+  // 欄位依完成度由高到低排列
+  const order=members.map((_,i)=>i).sort((a,b)=>doneOf(b)-doneOf(a));
 
   let head='<thead><tr><th style="width:230px">檢核項目</th>';
-  members.forEach((m,mi)=>{
+  order.forEach(mi=>{
+    const m=members[mi];
     const noteRow = ro
-      ? ((notesArr()[mi]||'')?`<div class="mnoterow">▸ ${notesArr()[mi]}</div>`:'')
-      : `<div class="mnoterow">▸ <span class="mnote" contenteditable="true" onfocus="mnoteFocus(${mi})" onblur="mnoteBlur(${mi})" oninput="setMemberNote(${mi},this.innerText)">${notesArr()[mi]||''}</span></div>`;
+      ? ((notesArr(V)[mi]||'')?`<div class="mnoterow">▸ ${notesArr(V)[mi]}</div>`:'')
+      : `<div class="mnoterow">▸ <span class="mnote" contenteditable="true" onfocus="mnoteFocus('${V}',${mi})" onblur="mnoteBlur('${V}',${mi})" oninput="setMemberNote('${V}',${mi},this.innerText)">${notesArr(V)[mi]||''}</span></div>`;
     head+=`<th><div class="mcard">
       <div class="mname">${m.name}</div>
       <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
       <div class="mmentor">導師：<b>${m.mentor}</b></div>
       ${m.join?`<div class="mind" style="margin-top:2px">🗓 入會 ${m.join}</div>`:''}
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
-      <div class="prog" id="prog-${mi}">進度 ${stat(mi)}</div>
+      <div class="prog" id="prog-${V}-${mi}">進度 ${stat(mi)}</div>
       ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
       ${noteRow}
     </div></th>`;
@@ -756,18 +760,18 @@ function tableHTML(){
   items.forEach((it,ii)=>{
     body+=`<tr><td class="itemcell"><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span>`
         +`<div class="idetail">${it[1]}</div><span class="iwho">負責：${it[2]}</span></td>`;
-    members.forEach((m,mi)=>{
+    order.forEach(mi=>{
       const [s,n]=grid[ii][mi];
       if(ro){
         body+=`<td class="cell ${STCLASS[s]}">
         <span class="sicon">${ICON[s]}</span>
         ${n?`<span class="note">${n}</span>`:''}</td>`;
       }else{
-        body+=`<td class="cell ${STCLASS[s]}" onclick="cycle(${ii},${mi})">
+        body+=`<td class="cell ${STCLASS[s]}" onclick="cycle('${V}',${ii},${mi})">
         <span class="sicon">${ICON[s]}</span>
         <span class="note" contenteditable="true" onclick="event.stopPropagation()"
-          onfocus="noteFocus(${ii},${mi})" onblur="noteBlur(${ii},${mi})"
-          oninput="setNote(${ii},${mi},this.innerText)">${n||''}</span></td>`;
+          onfocus="noteFocus('${V}',${ii},${mi})" onblur="noteBlur('${V}',${ii},${mi})"
+          oninput="setNote('${V}',${ii},${mi},this.innerText)">${n||''}</span></td>`;
       }
     });
     body+='</tr>';
@@ -775,12 +779,15 @@ function tableHTML(){
   body+='</tbody>';
 
   let foot='<tfoot><tr><td>完成度</td>';
-  members.forEach((m,mi)=>{ foot+=`<td id="foot-${mi}">${stat(mi)}</td>`; });
+  order.forEach(mi=>{ foot+=`<td id="foot-${V}-${mi}">${stat(mi)}</td>`; });
   foot+='</tr></tfoot>';
   return '<table class="bigtable">'+head+body+foot+'</table>';
 }
-function renderTable(){
-  document.getElementById('view').innerHTML='<div class="tablescroll">'+tableHTML()+'</div>';
+function renderTablesBoth(){
+  const sec=t=>`<div class="allh-title" style="font-size:17px;margin:4px 0 10px;padding-left:10px;border-left:4px solid var(--accent)">${t}</div>`;
+  document.getElementById('view').innerHTML=
+    sec('舊版檢核（15 項）')+'<div class="tablescroll">'+tableHTML('old')+'</div>'
+    +sec('新版檢核（17 項）')+'<div class="tablescroll" style="margin-top:22px">'+tableHTML('new')+'</div>';
 }
 
 function renderCards(){
@@ -788,10 +795,12 @@ function renderCards(){
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
   const grid    = DATA[CUR];
   const ro      = !!VIEWONLY || VIEWALL;
+  const V=CUR;
   const m=members[PICK];
   let done=0; grid.forEach(row=>{ if(row[PICK][0]===1) done++; });
   const pct=Math.round(done/items.length*100);
-  let h = VIEWALL ? `<div class="backbar"><button class="act" onclick="closeAllDetail()">← 返回全體村民</button></div>` : '';
+  let h = VIEWALL ? `<div class="backbar"><button class="act" onclick="closeAllDetail()">← 返回全體村民</button></div>`
+        : EDITSEL ? `<div class="backbar"><button class="act" onclick="closeEditDetail()">← 返回全體進度</button></div>` : '';
   h+=`<div class="ccard">
     <div class="chead">
       <div><div class="mname" style="font-size:20px">${m.name}</div>
@@ -802,20 +811,20 @@ function renderCards(){
     <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
     ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
     ${ro
-      ? ((notesArr()[PICK]||'')?`<div class="miss" style="color:#9af0bd">▸ ${notesArr()[PICK]}</div>`:'')
-      : `<input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr()[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus(${PICK})" onblur="mnoteBlur(${PICK})" oninput="setMemberNote(${PICK},this.value)">`}
+      ? ((notesArr(V)[PICK]||'')?`<div class="miss" style="color:#9af0bd">▸ ${notesArr(V)[PICK]}</div>`:'')
+      : `<input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr(V)[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus('${V}',${PICK})" onblur="mnoteBlur('${V}',${PICK})" oninput="setMemberNote('${V}',${PICK},this.value)">`}
   </div>`;
   items.forEach((it,ii)=>{
     const [s,n]=grid[ii][PICK];
     h+=`<div class="crow">
-      <div class="cstatus ${STCLASS[s]}" ${ro?'':`onclick="cycle(${ii},${PICK})"`}><span class="sicon">${ICON[s]}</span></div>
+      <div class="cstatus ${STCLASS[s]}" ${ro?'':`onclick="cycle('${V}',${ii},${PICK})"`}><span class="sicon">${ICON[s]}</span></div>
       <div class="cinfo">
         <div><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span></div>
         <div class="idetail2">${it[1]}　·　負責：${it[2]}</div>
         ${ro
           ? (n?`<div class="ronote">📝 ${n}</div>`:'')
           : `<input class="cnote" placeholder="備註 / 日期（如 6/26、7/30前）" value="${(n||'').replace(/"/g,'&quot;')}"
-              onfocus="noteFocus(${ii},${PICK})" onblur="noteBlur(${ii},${PICK})" oninput="setNote(${ii},${PICK},this.value)">`}
+              onfocus="noteFocus('${V}',${ii},${PICK})" onblur="noteBlur('${V}',${ii},${PICK})" oninput="setNote('${V}',${ii},${PICK},this.value)">`}
       </div>
     </div>`;
   });
@@ -823,17 +832,13 @@ function renderCards(){
 }
 
 function syncControls(){
-  const isArc = CUR==='arc';
   const sel=document.getElementById('mpick');
+  if(sel) sel.style.display='none';   // 選人改由總覽卡片點入，下拉停用
   const b=document.getElementById('modebtn');
-  if(isArc){ if(sel) sel.style.display='none'; if(b) b.style.display='none'; return; }
-  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
-  if(sel){
-    sel.innerHTML=members.map((mm,i)=>`<option value="${i}">${mm.name}</option>`).join('');
-    sel.value=PICK;
-    sel.style.display = MODE==='cards'?'':'none';
-  }
-  if(b){ b.style.display=''; b.textContent = MODE==='cards'?'📊 整表檢視':'📱 單人檢視'; }
+  if(!b) return;
+  if(CUR==='arc'||EDITSEL){ b.style.display='none'; return; }
+  b.style.display='';
+  b.textContent = MODE==='cards'?'📊 整表檢視':'🏁 總覽檢視';
 }
 function pickMember(v){ PICK=+v; render(); }
 function toggleMode(){ MODE=(MODE==='cards'?'table':'cards'); MODE_LOCKED=true; render(); }
@@ -843,24 +848,25 @@ window.addEventListener('resize', ()=>{
   if(want!==MODE){ MODE=want; render(); }
 });
 
-function cycle(ii,mi){ const c=DATA[CUR][ii][mi]; c[0]=(c[0]+1)%3; addLog(CUR,mi,ii,ACTLABEL[c[0]]); save(); render(); }
-function setNote(ii,mi,txt){
-  DATA[CUR][ii][mi][1]=txt.trim();
-  if(txt.trim() && DATA[CUR][ii][mi][0]===0){ DATA[CUR][ii][mi][0]=2; }
+function cycle(ver,ii,mi){ const c=DATA[ver][ii][mi]; c[0]=(c[0]+1)%3; addLog(ver,mi,ii,ACTLABEL[c[0]]); save(); render(); }
+function setNote(ver,ii,mi,txt){
+  DATA[ver][ii][mi][1]=txt.trim();
+  if(txt.trim() && DATA[ver][ii][mi][0]===0){ DATA[ver][ii][mi][0]=2; }
   save(); updateTotals();
 }
 function updateTotals(){
-  const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
-  const grid=DATA[CUR]; const total=grid.length;
-  members.forEach((m,mi)=>{
-    let done=0; grid.forEach(row=>{ if(row[mi][0]===1) done++; });
-    const pct=Math.round(done/total*100);
-    const f=document.getElementById('foot-'+mi); if(f) f.innerHTML=`${done}/${total} ・ ${pct}%`;
-    const p=document.getElementById('prog-'+mi); if(p) p.textContent=`進度 ${done}/${total}（${pct}%）`;
+  [['old',OLD_MEMBERS],['new',NEW_MEMBERS]].forEach(([v,members])=>{
+    const grid=DATA[v]; const total=grid.length;
+    members.forEach((m,mi)=>{
+      let done=0; grid.forEach(row=>{ if(row[mi][0]===1) done++; });
+      const pct=Math.round(done/total*100);
+      const f=document.getElementById('foot-'+v+'-'+mi); if(f) f.innerHTML=`${done}/${total} ・ ${pct}%`;
+      const p=document.getElementById('prog-'+v+'-'+mi); if(p) p.textContent=`進度 ${done}/${total}（${pct}%）`;
+    });
   });
 }
 function switchVer(v){
-  CUR=v;
+  CUR=v; EDITSEL=null;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   render();
 }
