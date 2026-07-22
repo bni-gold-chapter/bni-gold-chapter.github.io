@@ -165,6 +165,15 @@
   .logempty{color:var(--mut);text-align:center;padding:34px 10px;font-size:13px;line-height:1.7}
   .linkrow{display:flex;gap:6px;align-items:center}
   .linkbox{flex:1;min-width:0;background:#070b10;border:1px solid var(--line);border-radius:8px;color:#8fc6ff;padding:7px 9px;font-size:12px}
+  /* ===== ⚙️ 工具選單 ===== */
+  .toolgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:14px;overflow:auto}
+  .toolbtn{display:flex;align-items:center;gap:11px;background:#0f141b;border:1px solid var(--line);border-radius:12px;
+    padding:13px 14px;color:var(--txt);cursor:pointer;font-size:14.5px;font-weight:700;text-align:left;transition:.15s;font-family:inherit}
+  .toolbtn:hover{border-color:var(--accent);box-shadow:0 0 12px rgba(225,6,0,.3)}
+  .toolbtn small{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-top:2px}
+  .toolbtn.danger{border-color:rgba(239,68,68,.45);color:#ffb0b0}
+  .toolbtn.danger:hover{border-color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.35)}
+  @media (max-width:420px){ .toolgrid{grid-template-columns:1fr} }
   /* ===== 村民唯讀預覽 ===== */
   body.viewonly .bar, body.viewonly .hint{display:none}
   body.viewonly .cstatus{cursor:default}
@@ -239,18 +248,31 @@
   <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
   <button class="act" id="modebtn" onclick="toggleMode()">📱 單人檢視</button>
   <div class="spacer"></div>
-  <span id="mode" class="m-local">● 本機模式</span>
   <span id="savetag" class="savetag">✔ 已儲存</span>
-  <button class="act" id="userbtn" onclick="setUser()">👤 操作者</button>
-  <button class="act" onclick="openLog()">📜 操作紀錄</button>
-  <button class="act" onclick="openLinks()">🔗 村民連結</button>
-  <button class="act" onclick="exportImage()">🖼 匯出整表圖片</button>
-  <button class="act" onclick="setupSync()">☁ 同步設定</button>
-  <button class="act" onclick="exportJSON()">⬇ 備份</button>
-  <button class="act" onclick="document.getElementById('imp').click()">⬆ 還原</button>
+  <span id="mode" class="m-local">● 本機模式</span>
+  <button class="act" onclick="openTools()">⚙️ 工具</button>
   <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
-  <button class="act" onclick="window.print()">🖨 列印</button>
-  <button class="act" onclick="resetAll()">↺ 重設</button>
+</div>
+
+<div id="toolmodal" class="modal" style="display:none" onclick="if(event.target===this)closeTools()">
+  <div class="modalbox" style="max-width:520px">
+    <div class="modalhead">
+      <b>⚙️ 工具</b>
+      <span class="loghint">日常勾選直接點表格即可，這裡是進階功能</span>
+      <button class="act" onclick="closeTools()">✕ 關閉</button>
+    </div>
+    <div class="toolgrid">
+      <button class="toolbtn" onclick="closeTools();openLinks()">🔗<span>村民連結<small>全體總覽共用連結</small></span></button>
+      <button class="toolbtn" onclick="closeTools();openLog()">📜<span>操作紀錄<small>誰在何時改了什麼</small></span></button>
+      <button class="toolbtn" onclick="closeTools();exportImage()">🖼<span>匯出整表圖片<small>舊版＋新版同一張</small></span></button>
+      <button class="toolbtn" id="userbtn" onclick="setUser()">👤<span>操作者<small id="usernow"></small></span></button>
+      <button class="toolbtn" onclick="exportJSON()">⬇<span>備份<small>下載 JSON 檔</small></span></button>
+      <button class="toolbtn" onclick="document.getElementById('imp').click()">⬆<span>還原<small>匯入備份檔</small></span></button>
+      <button class="toolbtn" onclick="closeTools();window.print()">🖨<span>列印<small>友善列印版面</small></span></button>
+      <button class="toolbtn" onclick="setupSync()">☁<span>同步設定<small>Firebase 連線</small></span></button>
+      <button class="toolbtn danger" onclick="resetAll()">↺<span>重設<small>清除全部回預設</small></span></button>
+    </div>
+  </div>
 </div>
 
 <div id="logmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLog()">
@@ -464,7 +486,9 @@ function pad2(n){ return String(n).padStart(2,'0'); }
 function fmtT(t){ const d=new Date(t); return d.getFullYear()+'/'+pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds()); }
 function getUser(){ return localStorage.getItem('bni_user')||'匿名'; }
 function setUser(){ const cur=getUser(); const v=prompt('輸入你的名字（會記錄在操作紀錄中，方便辨識是誰改的）：', cur==='匿名'?'':cur); if(v!=null){ localStorage.setItem('bni_user', v.trim()||'匿名'); syncUserBtn(); } }
-function syncUserBtn(){ const b=document.getElementById('userbtn'); if(b) b.textContent='👤 '+getUser(); }
+function syncUserBtn(){ const el=document.getElementById('usernow'); if(el) el.textContent='目前：'+getUser(); }
+function openTools(){ document.getElementById('toolmodal').style.display='flex'; }
+function closeTools(){ document.getElementById('toolmodal').style.display='none'; }
 const ACTLABEL={0:'未開始',1:'完成',2:'進行中'};
 const ACTCLASS={'未開始':'a-empty','完成':'a-done','進行中':'a-pending'};
 function pushLog(e){
