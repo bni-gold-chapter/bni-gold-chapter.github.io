@@ -326,10 +326,10 @@ function dfltOld(){
 }
 
 const NEW_MEMBERS = [
-  {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'預計6月底', miss:'', note:'下週五完成繳費'},
+  {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:'下週五完成繳費'},
   {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'引薦 5次、來賓 2位、培訓 6分、成交 80萬', note:'預計一個月出村'},
   {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'來賓 1位、培訓 6分、成交 79萬', note:'預計一個月出村'},
-  {name:'吳至軒', npc:'', ind:'法式甜點', mentor:'黃奕樺', light:null, join:'預計7/2授證', miss:'', note:'預計 7/2（四）授證'},
+  {name:'吳至軒', npc:'', ind:'法式甜點', mentor:'黃奕樺', light:null, join:'115.07.02', miss:'', note:'預計 7/2（四）授證'},
 ];
 const NEW_ITEMS = [
   ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
@@ -620,6 +620,7 @@ function renderPublicOverview(){
       <div class="allrank">#${rank+1}</div>
       <div class="mname">${r.m.name}<span class="verpill">${r.ver==='old'?'舊 15':'新 17'}</span></div>
       <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b style="color:#7fc4ff">${r.m.mentor}</b></div>
+      ${r.m.join?`<div class="mind" style="margin-top:3px">🗓 入會 ${r.m.join}</div>`:''}
       <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
       <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${r.pct}%"></div></div><span>${r.done}/${r.total}（${r.pct}%）</span></div>
       ${r.m.miss?`<div class="miss">缺：${r.m.miss}</div>`:''}
@@ -685,6 +686,7 @@ function tableHTML(){
       <div class="mname">${m.name}</div>
       <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}</div>
       <div class="mmentor">導師：<b>${m.mentor}</b></div>
+      ${m.join?`<div class="mind" style="margin-top:2px">🗓 入會 ${m.join}</div>`:''}
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
       <div class="prog" id="prog-${mi}">進度 ${stat(mi)}</div>
       ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
