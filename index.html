@@ -170,18 +170,29 @@
   body.viewonly .cstatus{cursor:default}
   body.viewonly .legend{padding:12px 22px}
   .ronote{color:#ffdf9a;font-size:13.5px;margin-top:6px;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-  /* ===== 村民唯讀「全部村民總表」 ===== */
-  body.viewall .bar{display:flex}                       /* 蓋掉 viewonly 的隱藏，只留分頁 */
-  body.viewall .bar>*:not(.tabs){display:none}          /* 隱藏所有編輯工具，只保留舊版/新版分頁 */
-  body.viewall .tab{cursor:pointer}
-  body.viewall td.cell{cursor:default}
-  body.viewall td.cell:hover{outline:none;background:transparent}
+  /* ===== 村民唯讀「全體村民總覽」（賽車儀表卡片牆） ===== */
+  body.viewall .cstatus{cursor:default}
   body.viewall .note{cursor:default}
-  body.viewall .mnote{border:none;cursor:default}
-  .roview-banner{margin:10px 22px 0;padding:9px 13px;border:1px solid var(--line);border-left:3px solid var(--accent);
-    border-radius:8px;background:rgba(255,255,255,.02);color:#c3ccd8;font-size:12.5px;line-height:1.6}
-  .roview-banner b{color:#fff;font-style:italic}
-  @media (max-width:768px){ body.viewall .bar{padding:8px 12px} .roview-banner{margin:8px 12px 0;font-size:11.5px} }
+  .allhead{margin:2px 0 15px}
+  .allh-title{font-style:italic;font-weight:900;font-size:21px;color:#fff;letter-spacing:.5px;text-shadow:0 0 18px rgba(225,6,0,.2)}
+  .allh-sub{color:var(--mut);font-size:12px;margin-top:5px;line-height:1.6}
+  .allgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
+  .allcard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 15px 13px;cursor:pointer;overflow:hidden;transition:.15s;
+    box-shadow:0 8px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)}
+  .allcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gray)}
+  .allcard.Lg::before{background:var(--green);box-shadow:0 0 14px rgba(40,209,124,.6)}
+  .allcard.Ly::before{background:var(--yellow);box-shadow:0 0 14px rgba(245,179,1,.55)}
+  .allcard.Lr::before{background:var(--red);box-shadow:0 0 14px rgba(239,68,68,.6)}
+  .allcard:hover{border-color:var(--accent);box-shadow:0 0 18px rgba(225,6,0,.35);transform:translateY(-2px)}
+  .allrank{position:absolute;right:11px;top:10px;font-family:var(--numfont);font-style:italic;font-weight:800;font-size:14px;color:#8b95a5}
+  .allcard .mname{font-size:18px}
+  .allcard .verpill{display:inline-block;font-size:10px;padding:1px 7px;border-radius:5px;background:#10263c;
+    color:#8fc6ff;margin-left:7px;vertical-align:middle;font-style:normal;font-weight:700}
+  .allmore{margin-top:11px;font-size:11.5px;color:#8fb7ff;font-weight:700}
+  .allcard:hover .allmore{color:#bcd9ff}
+  .backbar{margin-bottom:13px}
+  @media (max-width:768px){ .allgrid{grid-template-columns:1fr;gap:11px} .allh-title{font-size:17px} }
   /* ===== Responsive ===== */
   @media (max-width:768px){
     header{padding:13px 14px 12px}
@@ -364,6 +375,7 @@ let MODE_LOCKED = false;
 const VIEWNAME = new URLSearchParams(location.search).get('view');
 let VIEWONLY = null;
 let VIEWALL = false;
+let ALLSEL = null;   /* 全體總覽：null=卡片牆；{ver,idx}=點進某人的完整檢核 */
 
 function defaults(){ return {old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||'')}; }
 function normalizeData(d){
@@ -555,15 +567,11 @@ function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&
 function initViewOnly(){
   if(!VIEWNAME) return;
   document.body.classList.add('viewonly');
-  // ?view=all（或 全部 / ALL）→ 全部村民唯讀總表
+  // ?view=all（或 全部 / ALL）→ 全體村民總覽（依完成度排序，點人名看完整檢核）
   if(/^(all|全部|ALL)$/i.test(VIEWNAME)){
     VIEWALL=true;
     document.body.classList.add('viewall');
-    CUR='old'; MODE='table'; MODE_LOCKED=true;
-    const wrap=document.querySelector('.wrap');
-    if(wrap){ const b=document.createElement('div'); b.className='roview-banner';
-      b.innerHTML='👀 <b>村民共用檢視</b>：這裡即時顯示全部新會員的出村檢核進度（唯讀，無法編輯）。上方可切換<b>舊版 / 新版</b>檢核。';
-      wrap.parentNode.insertBefore(b, wrap); }
+    MODE_LOCKED=true;
     return;
   }
   let i=OLD_MEMBERS.findIndex(m=>m.name===VIEWNAME);
@@ -580,14 +588,51 @@ function openLinks(){
   const url=base+'?view=all';
   document.getElementById('linklist').innerHTML=
     `<div class="logrow"><div class="logt">全部村民・總表</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${url}')">複製</button></div></div>`
-    +`<div class="logempty" style="padding:16px 6px 4px;text-align:left;font-size:12px;line-height:1.7">把這條連結傳到分會群組，所有村民都能即時看到<b style="color:#c3ccd8">全部新會員</b>的出村檢核進度（含燈號與引薦／來賓／成交缺口）。開啟後為<b style="color:#c3ccd8">唯讀</b>，村民只能看、不能改。</div>`;
+    +`<div class="logempty" style="padding:16px 6px 4px;text-align:left;font-size:12px;line-height:1.7">把這條連結傳到分會群組，所有村民都能即時看到<b style="color:#c3ccd8">全部新會員</b>的總覽卡片牆（含燈號與引薦／來賓／成交缺口），<b style="color:#c3ccd8">依完成度由高到低排序</b>；<b style="color:#c3ccd8">點任一人</b>即可展開他的完整逐項檢核。開啟後為<b style="color:#c3ccd8">唯讀</b>，村民只能看、不能改。</div>`;
   document.getElementById('linkmodal').style.display='flex';
 }
 function closeLinks(){ document.getElementById('linkmodal').style.display='none'; }
 function copyLink(btn,url){ navigator.clipboard.writeText(url).then(()=>{ btn.textContent='已複製 ✓'; setTimeout(()=>btn.textContent='複製',1500); }); }
 
+/* ====== 全體村民總覽（依完成度排序的卡片牆 → 點人名看完整檢核） ====== */
+function buildAllList(){
+  const rows=[];
+  const add=(ver,arr)=>{
+    const total=(ver==='old'?OLD_ITEMS:NEW_ITEMS).length; const grid=DATA[ver];
+    arr.forEach((m,idx)=>{ let done=0; grid.forEach(r=>{ if(r[idx][0]===1) done++; });
+      rows.push({ver,idx,m,done,total,pct:Math.round(done/total*100)}); });
+  };
+  add('old',OLD_MEMBERS); add('new',NEW_MEMBERS);
+  // 不分新舊，完成度高的排前面；同完成度時燈號高者在前
+  rows.sort((a,b)=> b.pct-a.pct || ((b.m.light==null?-1:b.m.light)-(a.m.light==null?-1:a.m.light)) );
+  return rows;
+}
+function barClass(v){ if(v==null) return ''; if(v>=70) return 'Lg'; if(v>=50) return 'Ly'; return 'Lr'; }
+function renderPublicOverview(){
+  const rows=buildAllList();
+  const stamp=(REFMETA&&REFMETA.updatedAt)?('　·　數據更新 '+REFMETA.updatedAt):'';
+  const head=`<div class="allhead">
+    <div class="allh-title">🏁 全體新會員 出村進度總覽</div>
+    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　點任一人看完整檢核內容${stamp}</div>
+  </div>`;
+  const cards=rows.map((r,rank)=>`
+    <div class="allcard ${barClass(r.m.light)}" onclick="openAllDetail('${r.ver}',${r.idx})">
+      <div class="allrank">#${rank+1}</div>
+      <div class="mname">${r.m.name}<span class="verpill">${r.ver==='old'?'舊 15':'新 17'}</span></div>
+      <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b style="color:#7fc4ff">${r.m.mentor}</b></div>
+      <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
+      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${r.pct}%"></div></div><span>${r.done}/${r.total}（${r.pct}%）</span></div>
+      ${r.m.miss?`<div class="miss">缺：${r.m.miss}</div>`:''}
+      <div class="allmore">看完整檢核 ›</div>
+    </div>`).join('');
+  document.getElementById('view').innerHTML=head+'<div class="allgrid">'+cards+'</div>';
+}
+function openAllDetail(ver,idx){ ALLSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
+function closeAllDetail(){ ALLSEL=null; render(); window.scrollTo(0,0); }
+
 function render(){
   if(VIEWNAME && !VIEWONLY && !VIEWALL) return;
+  if(VIEWALL){ if(ALLSEL){ renderCards(); } else { renderPublicOverview(); } return; }
   if(CUR==='arc'){ renderArchive(); syncControls(); return; }
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   if(PICK>=members.length) PICK=0;
@@ -683,11 +728,12 @@ function renderCards(){
   const members = CUR==='old'?OLD_MEMBERS:NEW_MEMBERS;
   const items   = CUR==='old'?OLD_ITEMS:NEW_ITEMS;
   const grid    = DATA[CUR];
-  const ro      = !!VIEWONLY;
+  const ro      = !!VIEWONLY || VIEWALL;
   const m=members[PICK];
   let done=0; grid.forEach(row=>{ if(row[PICK][0]===1) done++; });
   const pct=Math.round(done/items.length*100);
-  let h=`<div class="ccard">
+  let h = VIEWALL ? `<div class="backbar"><button class="act" onclick="closeAllDetail()">← 返回全體村民</button></div>` : '';
+  h+=`<div class="ccard">
     <div class="chead">
       <div><div class="mname" style="font-size:20px">${m.name}</div>
         <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b style="color:#7fc4ff">${m.mentor}</b></div></div>
