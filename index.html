@@ -736,7 +736,8 @@ function renderCards(){
   h+=`<div class="ccard">
     <div class="chead">
       <div><div class="mname" style="font-size:20px">${m.name}</div>
-        <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b style="color:#7fc4ff">${m.mentor}</b></div></div>
+        <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b style="color:#7fc4ff">${m.mentor}</b></div>
+        ${m.join?`<div class="mind" style="margin-top:3px">🗓 入會時間：<b style="color:#e5e7eb">${m.join}</b></div>`:''}</div>
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
     </div>
     <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
