@@ -174,6 +174,17 @@
   .toolbtn.danger{border-color:rgba(239,68,68,.45);color:#ffb0b0}
   .toolbtn.danger:hover{border-color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.35)}
   @media (max-width:420px){ .toolgrid{grid-template-columns:1fr} }
+  /* ===== 協調員：完成出村／新增村民 ===== */
+  .gradbtn{margin-top:11px;width:100%;background:linear-gradient(180deg,#2fe08a,#18b96b);color:#04180c;border:none;
+    border-radius:9px;padding:10px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 0 14px rgba(40,209,124,.45);font-family:inherit}
+  .gradbtn:hover{filter:brightness(1.12)}
+  .addbox{margin-top:16px;background:var(--panel);border:1px dashed var(--line2);border-radius:13px;padding:14px}
+  .addbox.locked{color:var(--mut);font-size:12.5px;text-align:center;cursor:pointer;padding:12px}
+  .addbox.locked:hover{border-color:var(--accent);color:#d6dde6}
+  .addtitle{font-weight:900;font-style:italic;color:#fff;margin-bottom:10px}
+  .addrow{display:flex;gap:8px;flex-wrap:wrap}
+  .addin{flex:1;min-width:130px;background:#070b10;border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px 11px;font-size:14px}
+  .addin:focus{outline:none;border-color:var(--accent)}
   /* ===== 村民唯讀預覽 ===== */
   body.viewonly .bar, body.viewonly .hint{display:none}
   body.viewonly .cstatus{cursor:default}
@@ -265,6 +276,7 @@
       <button class="toolbtn" onclick="closeTools();openLog()">📜<span>操作紀錄<small>誰在何時改了什麼</small></span></button>
       <button class="toolbtn" onclick="closeTools();exportImage()">🖼<span>匯出整表圖片<small>舊版＋新版同一張</small></span></button>
       <button class="toolbtn" id="userbtn" onclick="setUser()">👤<span>操作者<small id="usernow"></small></span></button>
+      <button class="toolbtn" onclick="toggleCoord()">👑<span>協調員模式<small id="coordnow"></small></span></button>
       <button class="toolbtn" onclick="exportJSON()">⬇<span>備份<small>下載 JSON 檔</small></span></button>
       <button class="toolbtn" onclick="document.getElementById('imp').click()">⬆<span>還原<small>匯入備份檔</small></span></button>
       <button class="toolbtn" onclick="closeTools();window.print()">🖨<span>列印<small>友善列印版面</small></span></button>
@@ -328,7 +340,7 @@
 
 <script>
 /* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
-const OLD_MEMBERS = [
+let OLD_MEMBERS = [
   {name:'陳雨震', npc:'飾品舖', ind:'防水工程', mentor:'林淙仁', light:65, join:'114.11.27', miss:'引薦 11次、來賓 13位、成交 38萬', note:'預計七月出村'},
   {name:'夏振異', npc:'', ind:'拆除工程', mentor:'林淙仁', light:75, join:'115.02.26', miss:'成交 79萬（來賓已達標）', note:'6/11 完成出村'},
   {name:'蔡家銘', npc:'', ind:'輕隔間', mentor:'李哲維', light:70, join:'115.02.26', miss:'來賓 3位、成交 63萬', note:''},
@@ -352,7 +364,7 @@ const OLD_ITEMS = [
 ];
 function dfltOld(){
   const g=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[1,'']));
-  const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
+  const set=(it,mb,s,n='')=>{ if(g[it]&&g[it][mb]) g[it][mb]=[s,n]; };
   // 成員索引：陳雨震0 夏振異1 蔡家銘2
   set(8,0,2,'一位'); set(8,1,2,'一位');                          // 陳/夏 擇二121
   set(13,1,2,'7/30前'); set(13,2,0);                             // 夏 與董顧121、蔡未開始
@@ -360,7 +372,7 @@ function dfltOld(){
   return g;
 }
 
-const NEW_MEMBERS = [
+let NEW_MEMBERS = [
   {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:'下週五完成繳費'},
   {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'引薦 5次、來賓 2位、培訓 6分、成交 80萬', note:'預計一個月出村'},
   {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'來賓 1位、培訓 6分、成交 79萬', note:'預計一個月出村'},
@@ -387,7 +399,7 @@ const NEW_ITEMS = [
 ];
 function dfltNew(){
   const g=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
-  const set=(it,mb,s,n='')=>{g[it][mb]=[s,n];};
+  const set=(it,mb,s,n='')=>{ if(g[it]&&g[it][mb]) g[it][mb]=[s,n]; };
   // 成員索引：楊有成0 許柏祥1 余政學2
   [0,1,2,3,4].forEach(it=>{ set(it,0,1); set(it,1,1); set(it,2,1); }); // 1~5 基礎項目完成
   set(5,1,2,'6/30前完成'); set(5,2,1);              // 6 網頁版Connect: 許進行中/余完成
@@ -413,8 +425,16 @@ let VIEWALL = false;
 let ALLSEL = null;   /* 村民總覽：null=卡片牆；{ver,idx}=點進某人的完整檢核 */
 let EDITSEL = null;  /* 編輯版總覽：null=卡片牆；{ver,idx}=點進某人的可編輯檢核 */
 
-function defaults(){ return {old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||'')}; }
+function defaults(){ return {mlist:1, old:dfltOld(), new:dfltNew(), oldNotes:OLD_MEMBERS.map(m=>m.note||''), newNotes:NEW_MEMBERS.map(m=>m.note||''), oldMembers:OLD_MEMBERS, newMembers:NEW_MEMBERS}; }
 function normalizeData(d){
+  // v2：名單存於資料節點（支援線上「完成出村封存」與「新增村民」），舊格式自動升級
+  if(d.mlist){ OLD_MEMBERS=d.oldMembers||[]; NEW_MEMBERS=d.newMembers||[]; }
+  else{ d.mlist=1; }
+  d.oldMembers=OLD_MEMBERS; d.newMembers=NEW_MEMBERS;
+  if(!Array.isArray(d.old)) d.old=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,'']));
+  if(!Array.isArray(d.new)) d.new=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
+  d.old=d.old.map(r=>Array.isArray(r)?r:[]);
+  d.new=d.new.map(r=>Array.isArray(r)?r:[]);
   if(!Array.isArray(d.oldNotes)) d.oldNotes=OLD_MEMBERS.map(m=>m.note||'');
   if(!Array.isArray(d.newNotes)) d.newNotes=NEW_MEMBERS.map(m=>m.note||'');
   return d;
@@ -459,7 +479,7 @@ function initSync(){
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
-      if(v && v.old && v.new){
+      if(v && (v.old || v.new || v.mlist)){
         applyingRemote=true; DATA=normalizeData(v);
         localStorage.setItem(KEY, JSON.stringify(DATA));
         if(!editing) render();
@@ -519,6 +539,53 @@ function confirmUser(){
 }
 function setUser(){ openUserModal(false); }
 function requireUser(){ if(!VIEWNAME && !hasUser()) openUserModal(true); }
+
+/* ====== 協調員模式（完成出村封存／新增村民，密碼解鎖）====== */
+const COORD_PIN='8888';
+let COORD = localStorage.getItem('bni_coord')==='1';
+function toggleCoord(){
+  if(COORD){ COORD=false; localStorage.removeItem('bni_coord'); }
+  else{
+    const p=prompt('輸入協調員密碼：'); if(p==null) return;
+    if(p.trim()===COORD_PIN){ COORD=true; localStorage.setItem('bni_coord','1'); }
+    else{ alert('密碼錯誤'); return; }
+  }
+  syncCoordBtn(); render();
+}
+function syncCoordBtn(){ const el=document.getElementById('coordnow'); if(el) el.textContent=COORD?'已解鎖 · 點擊可關閉':'需密碼解鎖'; }
+function backupCloud(reason){
+  if(SHARED){ try{ firebase.database().ref('backups_v1').push({t:Date.now(),by:getUser(),reason:reason,data:JSON.parse(JSON.stringify(DATA))}); }catch(e){} }
+}
+function graduate(ver,idx){
+  if(!COORD){ alert('此功能需先在「⚙️ 工具 → 協調員模式」解鎖。'); return; }
+  const members=ver==='old'?OLD_MEMBERS:NEW_MEMBERS;
+  const items=ver==='old'?OLD_ITEMS:NEW_ITEMS;
+  const m=members[idx]; if(!m) return;
+  let done=0; DATA[ver].forEach(r=>{ if(r[idx]&&r[idx][0]===1) done++; });
+  if(!confirm('確定將「'+m.name+'」封存出村？\n完成度 '+done+'/'+items.length+'。封存後從追蹤名單移除，完整檢核紀錄保存在「📦 已出村封存」。')) return;
+  backupCloud('封存出村：'+m.name);
+  const snap={name:m.name,ind:m.ind||'',npc:m.npc||'',mentor:m.mentor||'',light:(m.light==null?null:m.light),join:m.join||'',miss:m.miss||'',note:notesArr(ver)[idx]||'',ver:ver,done:done,total:items.length,items:DATA[ver].map(r=>r[idx]||[0,'']),archivedAt:fmtT(Date.now())};
+  ARCHIVE=[...(ARCHIVE||[]),snap];
+  if(SHARED){ try{ firebase.database().ref('archive_v1').set(ARCHIVE); }catch(e){} }
+  DATA[ver]=DATA[ver].map(r=>r.filter((_,i)=>i!==idx));
+  notesArr(ver).splice(idx,1);
+  members.splice(idx,1);
+  addSysLog('🎓 封存出村：'+m.name+'（'+done+'/'+items.length+'）');
+  save(); render();
+}
+function addMember(){
+  if(!COORD){ alert('此功能需先在「⚙️ 工具 → 協調員模式」解鎖。'); return; }
+  const gv=id=>document.getElementById(id).value.trim();
+  const name=gv('an-name'), ind=gv('an-ind'), mentor=gv('an-mentor'), join=gv('an-join');
+  if(!name){ alert('請至少填寫姓名'); return; }
+  if(OLD_MEMBERS.concat(NEW_MEMBERS).some(m=>m.name===name)){ alert('名單中已有「'+name+'」'); return; }
+  backupCloud('新增村民：'+name);
+  NEW_MEMBERS.push({name:name,npc:'',ind:ind,mentor:mentor,light:null,join:join,miss:'',note:''});
+  DATA.new.forEach(r=>r.push([0,'']));
+  DATA.newNotes.push('');
+  addSysLog('➕ 新增村民：'+name+(mentor?('（導師 '+mentor+'）'):''));
+  save(); render();
+}
 function syncUserBtn(){ const el=document.getElementById('usernow'); if(el) el.textContent='目前：'+getUser(); }
 function openTools(){ document.getElementById('toolmodal').style.display='flex'; }
 function closeTools(){ document.getElementById('toolmodal').style.display='none'; }
@@ -679,9 +746,25 @@ function renderOverview(editable){
       <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
       <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${r.pct}%"></div></div><span>${r.done}/${r.total}（${r.pct}%）</span></div>
       ${r.m.miss?`<div class="miss">缺：${r.m.miss}</div>`:''}
+      ${editable&&COORD&&r.pct===100?`<button class="gradbtn" onclick="event.stopPropagation();graduate('${r.ver}',${r.idx})">🎓 完成出村（封存）</button>`:''}
       <div class="allmore">${editable?'進入編輯 ›':'看完整檢核 ›'}</div>
     </div>`).join('');
-  document.getElementById('view').innerHTML=head+'<div class="allgrid">'+cards+'</div>';
+  let bottom='';
+  if(editable){
+    bottom = COORD
+      ? `<div class="addbox"><div class="addtitle">➕ 新增村民（加入新版 17 項檢核）</div>
+          <div class="addrow">
+            <input id="an-name" class="addin" placeholder="姓名（必填）">
+            <input id="an-ind" class="addin" placeholder="行業">
+            <input id="an-mentor" class="addin" placeholder="負責導師">
+            <input id="an-join" class="addin" placeholder="入會時間（如 115.07.02）">
+            <button class="act" style="font-weight:700;padding:10px 18px" onclick="addMember()">新增</button>
+          </div>
+          <div class="allh-sub" style="margin-top:8px">新增與「🎓 完成出村」皆會先自動備份雲端資料（backups_v1），全體導師畫面即時同步。</div>
+        </div>`
+      : `<div class="addbox locked" onclick="toggleCoord()">🔒 協調員功能（完成出村封存／新增村民）— 點此輸入密碼解鎖</div>`;
+  }
+  document.getElementById('view').innerHTML=head+'<div class="allgrid">'+cards+'</div>'+bottom;
 }
 function openAllDetail(ver,idx){ ALLSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
 function closeAllDetail(){ ALLSEL=null; render(); window.scrollTo(0,0); }
@@ -888,6 +971,7 @@ function resetAll(){
 initViewOnly();
 render();
 syncUserBtn();
+syncCoordBtn();
 requireUser();
 initSync();
 </script>
