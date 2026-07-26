@@ -481,6 +481,7 @@ function initSync(){
       const v=snap.val();
       if(v && (v.old || v.new || v.mlist)){
         applyingRemote=true; DATA=normalizeData(v);
+        if(REFDATA) applyRefdata(REFDATA);   // 名單從雲端載入後，重套最新紅綠燈數據（避免被舊快照蓋回）
         localStorage.setItem(KEY, JSON.stringify(DATA));
         if(!editing) render();
         applyingRemote=false;
@@ -663,7 +664,7 @@ const ICON={0:'○',1:'✔︎',2:'⧗'};
 const STCLASS={0:'st-empty',1:'st-done',2:'st-pending'};
 
 /* ====== 紅綠燈檢視表數據連動（依姓名套用燈號 + 引薦/來賓/成交） ====== */
-let REFMETA=null;
+let REFMETA=null, REFDATA=null;
 function missFromRef(r){
   const p=[];
   if(r.ref>0) p.push('引薦 '+r.ref+'次');
@@ -675,7 +676,7 @@ function missFromRef(r){
 }
 function applyRefdata(rd){
   if(!rd||!rd.members) return;
-  REFMETA=rd.meta||null;
+  REFDATA=rd; REFMETA=rd.meta||null;
   [OLD_MEMBERS,NEW_MEMBERS].forEach(arr=>arr.forEach(m=>{
     const r=rd.members[m.name];
     if(r){ if(typeof r.light==='number') m.light=r.light; m.miss=missFromRef(r); }
