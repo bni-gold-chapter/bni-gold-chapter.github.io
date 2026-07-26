@@ -38,16 +38,18 @@ const num = (s, k) => {
   const stable = x => Array.isArray(x) ? '[' + x.map(stable).join(',') + ']'
     : (x && typeof x === 'object') ? '{' + Object.keys(x).sort().map(k => JSON.stringify(k) + ':' + stable(x[k])).join(',') + '}'
     : JSON.stringify(x);
-  try {
-    const cur = await (await fetch(`${FB}/refdata/members.json`)).json();
-    if (cur && stable(cur) === stable(members)) {
-      console.log(`數據無變化（${count} 位會員），略過寫入。`);
-      return;
-    }
-  } catch (e) { /* 讀不到現有數據就直接寫入 */ }
+  if (!process.env.FORCE) {
+    try {
+      const cur = await (await fetch(`${FB}/refdata/members.json`)).json();
+      if (cur && stable(cur) === stable(members)) {
+        console.log(`數據無變化（${count} 位會員），略過寫入。`);
+        return;
+      }
+    } catch (e) { /* 讀不到現有數據就直接寫入 */ }
+  }
 
   // 4) 寫入 Firebase
-  const updatedAt = new Date().toLocaleString('zh-TW', { hour12: false });
+  const updatedAt = new Date().toLocaleString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' });
   const res = await fetch(`${FB}/refdata.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },

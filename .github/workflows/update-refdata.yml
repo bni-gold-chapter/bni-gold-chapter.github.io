@@ -4,6 +4,11 @@ name: 更新紅綠燈數據 (refdata)
 # 手動：GitHub → Actions → 此 workflow → Run workflow（或請 AI 經 API 觸發）
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: '強制寫入（即使數據無變化）'
+        type: boolean
+        default: false
   schedule:
     - cron: '30 13 * * 0'   # UTC 週日 13:30 = 台灣週日 21:30
 
@@ -17,3 +22,5 @@ jobs:
           node-version: 20
       - name: 抓取紅綠燈檢視表 → 寫入 Firebase refdata
         run: node update-refdata.js
+        env:
+          FORCE: ${{ inputs.force && '1' || '' }}
