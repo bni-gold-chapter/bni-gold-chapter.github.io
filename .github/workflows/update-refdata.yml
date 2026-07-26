@@ -1,0 +1,17 @@
+name: 更新紅綠燈數據 (refdata)
+
+# 手動觸發：GitHub → Actions → 此 workflow → Run workflow
+# （或請 AI 助手經 API 觸發）
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 抓取紅綠燈檢視表 → 寫入 Firebase refdata
+        run: node update-refdata.js
