@@ -1,9 +1,11 @@
 name: 更新紅綠燈數據 (refdata)
 
-# 手動觸發：GitHub → Actions → 此 workflow → Run workflow
-# （或請 AI 助手經 API 觸發）
+# 自動：每週日 21:30（台灣時間）偵測紅綠燈檢視表，內容有變化才寫入 Firebase
+# 手動：GitHub → Actions → 此 workflow → Run workflow（或請 AI 經 API 觸發）
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '30 13 * * 0'   # UTC 週日 13:30 = 台灣週日 21:30
 
 jobs:
   update:
