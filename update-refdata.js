@@ -34,7 +34,19 @@ const num = (s, k) => {
   const count = Object.keys(members).length;
   if (!count) throw new Error('解析不到會員資料（對方網站結構可能改了）');
 
-  // 3) 寫入 Firebase
+  // 3) 偵測變化：與雲端現有數據相同就略過寫入（排程自動執行用）
+  const stable = x => Array.isArray(x) ? '[' + x.map(stable).join(',') + ']'
+    : (x && typeof x === 'object') ? '{' + Object.keys(x).sort().map(k => JSON.stringify(k) + ':' + stable(x[k])).join(',') + '}'
+    : JSON.stringify(x);
+  try {
+    const cur = await (await fetch(`${FB}/refdata/members.json`)).json();
+    if (cur && stable(cur) === stable(members)) {
+      console.log(`數據無變化（${count} 位會員），略過寫入。`);
+      return;
+    }
+  } catch (e) { /* 讀不到現有數據就直接寫入 */ }
+
+  // 4) 寫入 Firebase
   const updatedAt = new Date().toLocaleString('zh-TW', { hour12: false });
   const res = await fetch(`${FB}/refdata.json`, {
     method: 'PUT',
