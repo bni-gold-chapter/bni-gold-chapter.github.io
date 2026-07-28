@@ -12,6 +12,7 @@ BNI 全鑫白金分會．導師協調員監督用的線上檢核追蹤系統。
 |---|---|
 | **導師使用（發給大家的）** | https://bni-gold-chapter.github.io/ |
 | 資料來源（分會紅綠燈檢視表） | https://service-2026-937515995986.us-west1.run.app/ |
+| LINE 群組聊天紀錄檢視頁（另一功能，見 [line-logger/README.md](line-logger/README.md)） | https://bni-gold-chapter.github.io/line-logs.html |
 
 ---
 

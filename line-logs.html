@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>LINE 群組聊天紀錄</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#1f2937;--sub:#6b7280;--line:#e5e7eb;--green:#06c755;--work:#2563eb;--contact:#d97706;--sys:#9ca3af}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:40px}
+header{background:var(--green);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:18px;flex:1}
+.wrap{max-width:860px;margin:0 auto;padding:12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+select,input[type=search]{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+input[type=search]{flex:1;min-width:160px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;cursor:pointer;user-select:none}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.act{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;cursor:pointer}
+.stat{font-size:12px;color:var(--sub);margin:4px 2px 10px}
+.day{font-size:13px;font-weight:700;color:var(--sub);margin:16px 4px 6px}
+.msg{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.msg .top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px}
+.msg .who{font-weight:700;font-size:14px}
+.msg .time{font-size:12px;color:var(--sub)}
+.msg .body{font-size:14px;white-space:pre-wrap;word-break:break-word}
+.tag{font-size:11px;padding:1px 8px;border-radius:999px;color:#fff}
+.tag.工作{background:var(--work)}.tag.聯絡{background:var(--contact)}.tag.系統{background:var(--sys)}
+.tag.一般{display:none}
+.extra{font-size:12px;color:var(--contact);margin-top:4px}
+.empty{text-align:center;color:var(--sub);padding:40px 0}
+#gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:9}
+#gate input{padding:10px 14px;border:1px solid var(--line);border-radius:8px;font-size:16px;text-align:center}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div style="font-size:32px">🔒</div>
+  <div>請輸入檢視密碼</div>
+  <input id="pw" type="password" inputmode="numeric" autocomplete="off">
+  <button class="act" onclick="tryGate()">進入</button>
+</div>
+
+<header><span style="font-size:22px">💬</span><h1>LINE 群組聊天紀錄</h1><button class="act" onclick="load()">🔄 重新整理</button></header>
+<div class="wrap">
+  <div class="bar">
+    <select id="grp" onchange="load()"></select>
+    <input id="q" type="search" placeholder="搜尋內容或成員…" oninput="render()">
+    <button class="act" onclick="csv()">⬇️ 匯出 CSV</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="stat" id="stat"></div>
+  <div id="list"><div class="empty">載入中…</div></div>
+</div>
+
+<script>
+const FB='https://bni-tracker-b3ef8-default-rtdb.firebaseio.com', NODE='linelogs_v1', PASS='8888';
+const CATS=['全部','工作','聯絡','一般','系統'];
+let cat='全部', msgs=[], groups={};
+
+// 簡易密碼閘（僅防路人誤入，非真正資安防護）
+function tryGate(){ if(document.getElementById('pw').value===PASS){ sessionStorage.llk='1'; document.getElementById('gate').style.display='none'; init(); } else alert('密碼錯誤'); }
+document.getElementById('pw').addEventListener('keydown',e=>{ if(e.key==='Enter') tryGate(); });
+if(sessionStorage.llk==='1'){ document.getElementById('gate').style.display='none'; init(); }
+
+document.getElementById('chips').innerHTML=CATS.map(c=>`<span class="chip${c==='全部'?' on':''}" data-c="${c}" onclick="setCat('${c}')">${{工作:'📋 ',聯絡:'📞 ',一般:'💬 ',系統:'🔔 '}[c]||''}${c==='工作'?'工作事項':c==='聯絡'?'聯絡事項':c}</span>`).join('');
+function setCat(c){ cat=c; document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.dataset.c===c)); render(); }
+
+async function init(){
+  try{ groups=await (await fetch(`${FB}/${NODE}/groups.json`)).json()||{}; }catch(e){ groups={}; }
+  const sel=document.getElementById('grp');
+  const ids=Object.keys(groups);
+  sel.innerHTML=ids.length?ids.map(id=>`<option value="${id}">${(groups[id].name||id).replace(/</g,'&lt;')}</option>`).join(''):'<option value="">（尚無群組紀錄）</option>';
+  load();
+}
+
+async function load(){
+  const id=document.getElementById('grp').value;
+  if(!id){ msgs=[]; return render(); }
+  document.getElementById('list').innerHTML='<div class="empty">載入中…</div>';
+  try{
+    const d=await (await fetch(`${FB}/${NODE}/messages/${id}.json`)).json()||{};
+    msgs=Object.values(d).sort((a,b)=>a.ts-b.ts);
+  }catch(e){ msgs=[]; }
+  render();
+}
+
+function filtered(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  return msgs.filter(m=>{
+    if(cat==='聯絡'){ if(!(m.category==='聯絡'||m.hasContact)) return false; }
+    else if(cat!=='全部'&&m.category!==cat) return false;
+    if(q&&!((m.text||'').toLowerCase().includes(q)||(m.user||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function render(){
+  const rows=filtered(), list=document.getElementById('list');
+  const n={工作:0,聯絡:0};
+  msgs.forEach(m=>{ if(m.category==='工作')n.工作++; if(m.category==='聯絡'||m.hasContact)n.聯絡++; });
+  document.getElementById('stat').textContent=`共 ${msgs.length} 則訊息｜📋 工作事項 ${n.工作}｜📞 聯絡事項 ${n.聯絡}｜顯示 ${rows.length} 則`;
+  if(!rows.length){ list.innerHTML='<div class="empty">沒有符合的訊息</div>'; return; }
+  let html='',day='';
+  // 由新到舊：日期新的在上，同日內時間由舊到新
+  const byDay={};
+  rows.forEach(m=>{ const d=(m.at||'').split(' ')[0]; (byDay[d]=byDay[d]||[]).push(m); });
+  Object.keys(byDay).sort().reverse().forEach(d=>{
+    html+=`<div class="day">${d}</div>`;
+    byDay[d].forEach(m=>{
+      const t=(m.at||'').split(' ')[1]||'';
+      const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      html+=`<div class="msg"><div class="top"><span class="who">${esc(m.user)}</span><span class="time">${t}</span><span class="tag ${m.category}">${m.category==='工作'?'工作事項':m.category==='聯絡'?'聯絡事項':m.category}</span></div><div class="body">${esc(m.text)}</div>${m.phone||m.email?`<div class="extra">📇 ${[m.phone,m.email].filter(Boolean).join('｜')}</div>`:''}</div>`;
+    });
+  });
+  list.innerHTML=html;
+}
+
+function csv(){
+  const rows=filtered();
+  if(!rows.length) return alert('沒有可匯出的訊息');
+  const gname=groups[document.getElementById('grp').value]?.name||'group';
+  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const body=[['時間','成員','分類','內容','電話','Email'].map(esc).join(','),
+    ...rows.map(m=>[m.at,m.user,m.category,m.text,m.phone||'',m.email||''].map(esc).join(','))].join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+body],{type:'text/csv;charset=utf-8'}));
+  a.download=`LINE紀錄_${gname}.csv`; a.click();
+}
+</script>
+</body>
+</html>

@@ -35,6 +35,7 @@
 | 「某某出村了，封存」 | **網頁即可操作**（2026/07 起）：⚙️ 工具 → 協調員模式（密碼 8888）→ 該員 100% 時卡片上的「🎓 完成出村」，會自動備份到 `backups_v1` 再搬進 `archive_v1`。亦可用 `archive-graduates.js` 腳本模式 |
 | 「新增會員」 | **網頁即可操作**：協調員模式 → 總覽底部「➕ 新增村民」表單（加入新版 17 項）。刪除（非出村）仍用 `migrate-remove-member.js` 模式搬遷 |
 | 「改檢核項目/樣式」 | 直接改 `index.html`，push |
+| 「LINE 群組聊天記錄」相關 | 另一獨立功能（公司官方 LINE 群組訊息自動記錄＋工作/聯絡分類）。Webhook 程式在 `line-logger/`（部署 Cloud Run），檢視頁 `line-logs.html`（密碼 8888），資料在 Firebase `linelogs_v1`。詳見 `line-logger/README.md` |
 
 ## ⚠️ 鐵則
 

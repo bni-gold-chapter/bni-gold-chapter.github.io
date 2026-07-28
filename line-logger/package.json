@@ -1,0 +1,12 @@
+{
+  "name": "line-group-logger",
+  "version": "1.0.0",
+  "description": "LINE 官方帳號群組聊天自動記錄器（Webhook → Firebase）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
