@@ -274,7 +274,7 @@
     <div class="toolgrid">
       <button class="toolbtn" onclick="closeTools();openLinks()">🔗<span>村民連結<small>全體總覽共用連結</small></span></button>
       <button class="toolbtn" onclick="closeTools();openLog()">📜<span>操作紀錄<small>誰在何時改了什麼</small></span></button>
-      <button class="toolbtn" onclick="closeTools();exportImage()">🖼<span>匯出整表圖片<small>舊版＋新版同一張</small></span></button>
+      <button class="toolbtn" onclick="closeTools();exportImage()">🖼<span>匯出整表圖片<small>目前所有村民進度</small></span></button>
       <button class="toolbtn" id="userbtn" onclick="setUser()">👤<span>操作者<small id="usernow"></small></span></button>
       <button class="toolbtn" onclick="toggleCoord()">👑<span>協調員模式<small id="coordnow"></small></span></button>
       <button class="toolbtn" onclick="exportJSON()">⬇<span>備份<small>下載 JSON 檔</small></span></button>
@@ -340,11 +340,9 @@
 
 <script>
 /* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
-let OLD_MEMBERS = [
-  {name:'陳雨震', npc:'飾品舖', ind:'防水工程', mentor:'林淙仁', light:65, join:'114.11.27', miss:'引薦 11次、來賓 13位、成交 38萬', note:'預計七月出村'},
-  {name:'夏振異', npc:'', ind:'拆除工程', mentor:'林淙仁', light:75, join:'115.02.26', miss:'成交 79萬（來賓已達標）', note:'6/11 完成出村'},
-  {name:'蔡家銘', npc:'', ind:'輕隔間', mentor:'李哲維', light:70, join:'115.02.26', miss:'來賓 3位、成交 63萬', note:''},
-];
+/* 舊版檢核已停用：最後三位（陳雨震／夏振異／蔡家銘）皆已出村並封存。
+   OLD_ITEMS 必須保留 —— 封存區仍有舊版 15 項的會員要靠它顯示檢核明細。 */
+let OLD_MEMBERS = [];
 const OLD_ITEMS = [
   ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
   ['個人名牌 & 新會員護照','直示當天提供','秘財'],
@@ -362,15 +360,7 @@ const OLD_ITEMS = [
   ['與董顧121','加入6週內完成','董顧'],
   ['報名5分鐘專業簡報','結業後可主動報名','秘書財務'],
 ];
-function dfltOld(){
-  const g=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[1,'']));
-  const set=(it,mb,s,n='')=>{ if(g[it]&&g[it][mb]) g[it][mb]=[s,n]; };
-  // 成員索引：陳雨震0 夏振異1 蔡家銘2
-  set(8,0,2,'一位'); set(8,1,2,'一位');                          // 陳/夏 擇二121
-  set(13,1,2,'7/30前'); set(13,2,0);                             // 夏 與董顧121、蔡未開始
-  for(let m=0;m<OLD_MEMBERS.length;m++) set(14,m,0);            // 報名5分鐘簡報 預設未開始
-  return g;
-}
+function dfltOld(){ return OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,''])); }
 
 let NEW_MEMBERS = [
   {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:'下週五完成繳費'},
@@ -626,8 +616,6 @@ function renderLog(){
 async function exportImage(){
   if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const btns=document.querySelectorAll('.bar button'); btns.forEach(b=>b.disabled=true);
-  // 同一張圖同時輸出「舊版 + 新版」
-  const oldTable=tableHTML('old');
   const newTable=tableHTML('new');
   const sec=(t,n)=>`<div style="font:italic 900 17px/1.3 'Noto Sans TC',sans-serif;color:#fff;margin:18px 0 8px;padding-left:10px;border-left:4px solid #e10600">${t}<span style="color:#8b95a5;font-size:13px;font-style:normal;font-weight:400">　${n}</span></div>`;
   const box=document.createElement('div');
@@ -635,8 +623,7 @@ async function exportImage(){
   box.innerHTML='<div id="capwrap" style="display:inline-block;min-width:1100px">'
     +'<div style="font:italic 900 22px/1.3 \'Noto Sans TC\',sans-serif;color:#fff;margin-bottom:4px">🏁 BNI GOLD CHAPTER — 新會員出村檢核追蹤表</div>'
     +'<div style="color:#8b95a5;font-size:13px">匯出時間：'+fmtT(Date.now())+'</div>'
-    +sec('舊版檢核','15 項')+oldTable
-    +sec('新版檢核','17 項')+newTable
+    +sec('檢核總表','17 項')+newTable
     +'</div>';
   document.body.appendChild(box);
   const cap=box.querySelector('#capwrap');
@@ -645,7 +632,7 @@ async function exportImage(){
       html2canvas(cap,{backgroundColor:'#000',scale:2,logging:false,useCORS:true}),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('產生逾時，請再試一次')),25000))
     ]);
-    const fname='BNI檢核追蹤_舊版+新版_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
+    const fname='BNI檢核追蹤_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
     const done=(blob)=>{
       if(!blob){ alert('產生圖片失敗，請再試一次。'); return; }
       const url=URL.createObjectURL(blob);
@@ -736,12 +723,12 @@ function renderOverview(editable){
   const stamp=(REFMETA&&REFMETA.updatedAt)?('　·　數據更新 '+REFMETA.updatedAt):'';
   const head=`<div class="allhead">
     <div class="allh-title">🏁 全體新會員 出村進度總覽</div>
-    <div class="allh-sub">舊版＋新版合併，依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div>
+    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div>
   </div>`;
   const cards=rows.map((r,rank)=>`
     <div class="allcard ${barClass(r.m.light)}" onclick="${editable?`openEditDetail('${r.ver}',${r.idx})`:`openAllDetail('${r.ver}',${r.idx})`}">
       <div class="allrank">#${rank+1}</div>
-      <div class="mname">${r.m.name}<span class="verpill">${r.ver==='old'?'舊 15':'新 17'}</span></div>
+      <div class="mname">${r.m.name}${r.ver==='old'?'<span class="verpill">舊 15</span>':''}</div>
       <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b style="color:#7fc4ff">${r.m.mentor}</b></div>
       ${r.m.join?`<div class="mind" style="margin-top:3px">🗓 入會 ${r.m.join}</div>`:''}
       <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
@@ -870,8 +857,7 @@ function tableHTML(V){
 function renderTablesBoth(){
   const sec=t=>`<div class="allh-title" style="font-size:17px;margin:4px 0 10px;padding-left:10px;border-left:4px solid var(--accent)">${t}</div>`;
   document.getElementById('view').innerHTML=
-    sec('舊版檢核（15 項）')+'<div class="tablescroll">'+tableHTML('old')+'</div>'
-    +sec('新版檢核（17 項）')+'<div class="tablescroll" style="margin-top:22px">'+tableHTML('new')+'</div>';
+    sec('檢核總表（17 項）')+'<div class="tablescroll">'+tableHTML('new')+'</div>';
 }
 
 function renderCards(){
