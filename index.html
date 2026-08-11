@@ -362,11 +362,13 @@ const OLD_ITEMS = [
 ];
 function dfltOld(){ return OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,''])); }
 
+/* 只是雲端載入前的種子名單；正式名單存在 tracker_v7.newMembers，
+   協調員線上增刪後不必回來改這裡。 */
 let NEW_MEMBERS = [
-  {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:'下週五完成繳費'},
-  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:30, join:'115.06.04', miss:'引薦 5次、來賓 2位、培訓 6分、成交 80萬', note:'預計一個月出村'},
-  {name:'余政學', npc:'', ind:'居家設計', mentor:'張晉銘', light:55, join:'115.06.04', miss:'來賓 1位、培訓 6分、成交 79萬', note:'預計一個月出村'},
-  {name:'吳至軒', npc:'', ind:'法式甜點', mentor:'黃奕樺', light:null, join:'115.07.02', miss:'', note:'預計 7/2（四）授證'},
+  {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:''},
+  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:null, join:'115.06.04', miss:'', note:''},
+  {name:'吳至軒', npc:'', ind:'法式甜點', mentor:'黃奕樺', light:null, join:'115.07.02', miss:'', note:''},
+  {name:'賴冠仁', npc:'', ind:'咖啡產業', mentor:'林淙仁', light:null, join:'115.08.13', miss:'', note:''},
 ];
 const NEW_ITEMS = [
   ['Line 群組加入及使用說明','商務交流群 & 放入名片','副主席'],
@@ -387,19 +389,9 @@ const NEW_ITEMS = [
   ['與董顧121','加入6週內完成','董顧'],
   ['綠燈結業後報名「專業短講」','擬定簡報定向','秘書財務'],
 ];
-function dfltNew(){
-  const g=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
-  const set=(it,mb,s,n='')=>{ if(g[it]&&g[it][mb]) g[it][mb]=[s,n]; };
-  // 成員索引：楊有成0 許柏祥1 余政學2
-  [0,1,2,3,4].forEach(it=>{ set(it,0,1); set(it,1,1); set(it,2,1); }); // 1~5 基礎項目完成
-  set(5,1,2,'6/30前完成'); set(5,2,1);              // 6 網頁版Connect: 許進行中/余完成
-  set(6,0,1); set(6,2,1);                            // 7 綠燈計分: 楊/余完成
-  set(7,1,1);                                        // 8 第二次導讀及導師121: 許完成
-  set(8,0,2,'完成一半');                              // 9 與導師協調員121: 楊
-  set(12,0,2,'預計七月份'); set(12,1,2,'預計七月份'); set(12,2,2,'已報名6/25MSP'); // 13 MSP
-  set(13,1,2,'7/2預計帶一位');                        // 14 帶來一位來賓: 許
-  return g;
-}
+/* 實際名單與進度以雲端 tracker_v7 為準（協調員可線上增刪）。
+   這裡只是雲端載入前的種子，一律留白，不再寫死任何人的勾選狀態。 */
+function dfltNew(){ return NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,''])); }
 
 /* ====== 狀態管理 ====== */
 const KEY='bni_new_member_tracker_v7';
@@ -421,12 +413,19 @@ function normalizeData(d){
   if(d.mlist){ OLD_MEMBERS=d.oldMembers||[]; NEW_MEMBERS=d.newMembers||[]; }
   else{ d.mlist=1; }
   d.oldMembers=OLD_MEMBERS; d.newMembers=NEW_MEMBERS;
-  if(!Array.isArray(d.old)) d.old=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,'']));
-  if(!Array.isArray(d.new)) d.new=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
-  d.old=d.old.map(r=>Array.isArray(r)?r:[]);
-  d.new=d.new.map(r=>Array.isArray(r)?r:[]);
-  if(!Array.isArray(d.oldNotes)) d.oldNotes=OLD_MEMBERS.map(m=>m.note||'');
-  if(!Array.isArray(d.newNotes)) d.newNotes=NEW_MEMBERS.map(m=>m.note||'');
+  // 表格尺寸一律對齊「項目數 × 人數」：缺的補 [0,'']、多的裁掉。
+  // 少了這道防護，只要雲端欄數與名單人數對不上（手動改資料、腳本中斷…），
+  // render 會丟 TypeError 讓整個畫面變空白。
+  const fit=(grid,items,members)=>items.map((_,i)=>{
+    const row=Array.isArray(grid)&&Array.isArray(grid[i])?grid[i]:[];
+    return members.map((_,c)=>Array.isArray(row[c])?row[c]:[0,'']);
+  });
+  d.old=fit(d.old,OLD_ITEMS,OLD_MEMBERS);
+  d.new=fit(d.new,NEW_ITEMS,NEW_MEMBERS);
+  const fitNotes=(notes,members)=>members.map((m,i)=>
+    (Array.isArray(notes)&&typeof notes[i]==='string')?notes[i]:(m.note||''));
+  d.oldNotes=fitNotes(d.oldNotes,OLD_MEMBERS);
+  d.newNotes=fitNotes(d.newNotes,NEW_MEMBERS);
   return d;
 }
 function load(){
@@ -446,6 +445,7 @@ const FIREBASE_CONFIG = {
   measurementId: "G-NLN6BRQYCQ"
 };
 let SHARED=false, dbRef=null, logRef=null, applyingRemote=false, editing=false, writeTimer=null;
+let SYNCED=false;   // 是否已收到第一份雲端資料（未同步前不要斷言「找不到這個人」）
 let LOG=[]; try{ LOG=JSON.parse(localStorage.getItem('bni_log'))||[]; }catch(e){ LOG=[]; }
 let ARCHIVE=[];
 let logOpen=false, noteFocusVal=null;
@@ -465,7 +465,8 @@ function initSync(){
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
-    firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[]; if(CUR==='arc'&&!editing) render(); });
+    firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[];
+      if(!editing && (CUR==='arc' || (VIEWNAME&&!VIEWALL&&!VIEWONLY))) render(); });
     SHARED=true; setMode('m-warn','☁ 連線中…');
     dbRef.on('value', snap=>{
       const v=snap.val();
@@ -478,6 +479,7 @@ function initSync(){
       }else{
         dbRef.set(DATA);  // 雲端尚無資料 → 以目前資料初始化
       }
+      if(!SYNCED){ SYNCED=true; if(VIEWNAME&&!VIEWALL&&!VIEWONLY) render(); }
       setMode('m-ok','☁ 雲端共用 已連線');
     }, err=>{ setMode('m-warn','☁ 連線失敗:'+(err&&err.code||'')); });
   }catch(e){ setMode('m-local','● 本機模式（設定有誤）'); }
@@ -684,14 +686,43 @@ function initViewOnly(){
     MODE_LOCKED=true;
     return;
   }
+  MODE='cards'; MODE_LOCKED=true;
+  resolveViewOnly();
+}
+/* 個人連結一律「以姓名即時比對」，不可把開頁當下的索引記死。
+   名單是雲端載入的，開頁當下用的是舊種子名單；記死索引會在名單變動後
+   指到別人身上（例：已出村的舊連結會顯示到後面遞補的村民資料）。 */
+function resolveViewOnly(){
+  if(!VIEWNAME || VIEWALL) return;
   let i=OLD_MEMBERS.findIndex(m=>m.name===VIEWNAME);
-  if(i>=0){ VIEWONLY={ver:'old',idx:i}; }
-  else { i=NEW_MEMBERS.findIndex(m=>m.name===VIEWNAME); if(i>=0) VIEWONLY={ver:'new',idx:i}; }
-  if(!VIEWONLY){
-    document.getElementById('view').innerHTML='<div class="logempty">找不到「'+VIEWNAME+'」的資料。<br>請向導師協調員索取正確的專屬連結。</div>';
+  if(i>=0){ VIEWONLY={ver:'old',idx:i}; CUR='old'; PICK=i; return; }
+  i=NEW_MEMBERS.findIndex(m=>m.name===VIEWNAME);
+  if(i>=0){ VIEWONLY={ver:'new',idx:i}; CUR='new'; PICK=i; return; }
+  VIEWONLY=null;   // 不在進行中名單（可能已出村、或名字不符）
+}
+function renderViewMiss(){
+  const v=document.getElementById('view');
+  const a=(ARCHIVE||[]).find(x=>x.name===VIEWNAME);
+  if(a){   // 已出村：顯示自己的封存紀錄，而不是誤指到別人
+    const items=(a.ver==='old')?OLD_ITEMS:NEW_ITEMS;
+    const pct=a.total?Math.round(a.done/a.total*100):0;
+    const rows=(a.items||[]).map((c,i)=>{
+      const s=(c&&c[0])||0, n=(c&&c[1])||'';
+      const label=items[i]?items[i][0]:('項目 '+(i+1));
+      return `<div class="arow"><span class="aicon ${STCLASS[s]}">${ICON[s]}</span><span class="atitle">${i+1}. ${label}</span>${n?`<span class="anote">${n}</span>`:''}</div>`;
+    }).join('');
+    v.innerHTML=`<div class="ccard acard">
+      <div class="chead"><div>
+        <div class="mname" style="font-size:20px">${a.name} <span class="agrad">已出村</span></div>
+        <div class="mind">${a.ind||''}　導師：<b style="color:#7fc4ff">${a.mentor||''}</b></div></div></div>
+      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${a.done}/${a.total}（${pct}%）</span></div>
+      <div class="miss" style="color:#7df3b4">🎉 恭喜完成出村！以下是你當時的完整檢核紀錄。</div>
+      <div class="alist">${rows}</div></div>`;
     return;
   }
-  CUR=VIEWONLY.ver; PICK=VIEWONLY.idx; MODE='cards'; MODE_LOCKED=true;
+  v.innerHTML=SYNCED
+    ? '<div class="logempty">找不到「'+VIEWNAME+'」的資料。<br>請向導師協調員索取正確的專屬連結。</div>'
+    : '<div class="logempty">資料載入中…</div>';
 }
 function openLinks(){
   const base=location.origin+location.pathname;
@@ -760,7 +791,7 @@ function openEditDetail(ver,idx){ EDITSEL={ver,idx}; CUR=ver; PICK=idx; render()
 function closeEditDetail(){ EDITSEL=null; CUR='ovw'; render(); window.scrollTo(0,0); }
 
 function render(){
-  if(VIEWNAME && !VIEWONLY && !VIEWALL) return;
+  if(VIEWNAME && !VIEWALL){ resolveViewOnly(); if(!VIEWONLY){ renderViewMiss(); return; } }
   if(VIEWALL){ if(ALLSEL){ renderCards(); } else { renderOverview(false); } return; }
   if(VIEWONLY){ renderCards(); return; }
   if(CUR==='arc'){ renderArchive(); syncControls(); return; }
@@ -951,8 +982,18 @@ function importJSON(e){
   r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.old&&d.new){DATA=normalizeData(d);addSysLog('匯入備份檔覆蓋進度');save();render();alert('已匯入並更新進度');} else alert('檔案格式不符'); }catch(err){alert('讀取失敗');} };
   r.readAsText(f); e.target.value='';
 }
+/* 只清空勾選與備註，保留目前名單。
+   不可用 defaults()：那會把名單倒回程式碼裡的舊種子，
+   等於救回已出村的人、又刪掉後來新增的村民。 */
 function resetAll(){
-  if(confirm('確定要清除所有更新、回到預設帶入狀態嗎?(雲端共用模式會同步清除給所有人)')){ DATA=defaults(); addSysLog('重設全部進度為預設值'); save(); render(); }
+  if(!confirm('確定要把所有村民的勾選與備註清成空白嗎？\n（名單會保留；雲端共用模式會同步清除給所有導師）')) return;
+  backupCloud('重設全部進度');
+  DATA.old=OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,'']));
+  DATA.new=NEW_ITEMS.map(()=>NEW_MEMBERS.map(()=>[0,'']));
+  DATA.oldNotes=OLD_MEMBERS.map(()=>'');
+  DATA.newNotes=NEW_MEMBERS.map(()=>'');
+  addSysLog('↺ 重設全部勾選與備註（名單保留）');
+  save(); render();
 }
 
 initViewOnly();
