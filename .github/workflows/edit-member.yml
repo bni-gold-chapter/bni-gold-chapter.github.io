@@ -1,0 +1,40 @@
+name: 修改村民資料
+
+# 手動：GitHub → Actions → 此 workflow → Run workflow（或請 AI 經 API 觸發）
+# edits 填 JSON 陣列，可一次改多筆；每筆都會先自動備份到 backups_v1
+on:
+  workflow_dispatch:
+    inputs:
+      edits:
+        description: 'JSON 陣列，例：[{"name":"王天暘","field":"join","value":"115.08.27"}]（field: ind|mentor|join|npc|note|name）'
+        required: true
+        type: string
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 逐筆修改（沿用 edit-member.js）
+        env:
+          EDITS: ${{ inputs.edits }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const arr = JSON.parse(process.env.EDITS);
+            if (!Array.isArray(arr) || !arr.length) throw new Error("edits 必須是非空 JSON 陣列");
+            arr.forEach(e => {
+              if (!e.name || !e.field) throw new Error("每筆都要有 name 與 field");
+            });
+            fs.writeFileSync("_edits.tsv", arr.map(e => [e.name, e.field, e.value ?? ""].join("\t")).join("\n"));
+          '
+          n=0
+          while IFS=$'\t' read -r name field value; do
+            n=$((n + 1))
+            echo "::group::第 $n 筆：$name / $field"
+            node edit-member.js "$name" "$field" "$value"
+            echo "::endgroup::"
+          done < _edits.tsv
