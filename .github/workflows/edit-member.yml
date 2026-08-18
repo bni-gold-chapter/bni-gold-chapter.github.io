@@ -29,12 +29,14 @@ jobs:
             arr.forEach(e => {
               if (!e.name || !e.field) throw new Error("每筆都要有 name 與 field");
             });
-            fs.writeFileSync("_edits.tsv", arr.map(e => [e.name, e.field, e.value ?? ""].join("\t")).join("\n"));
+            // 結尾要留換行，否則 while read 會漏掉最後一筆
+            fs.writeFileSync("_edits.tsv", arr.map(e => [e.name, e.field, e.value ?? ""].join("\t")).join("\n") + "\n");
           '
           n=0
-          while IFS=$'\t' read -r name field value; do
+          while IFS=$'\t' read -r name field value || [ -n "$name" ]; do
             n=$((n + 1))
             echo "::group::第 $n 筆：$name / $field"
             node edit-member.js "$name" "$field" "$value"
             echo "::endgroup::"
           done < _edits.tsv
+          if [ "$n" -eq 0 ]; then echo "沒有執行任何修改"; exit 1; fi
