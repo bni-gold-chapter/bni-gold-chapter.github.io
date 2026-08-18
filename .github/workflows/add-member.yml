@@ -1,0 +1,36 @@
+name: 新增村民
+
+# 手動：GitHub → Actions → 此 workflow → Run workflow（或請 AI 經 API 觸發）
+# members 填 JSON 陣列，可一次加多位；每位都會先自動備份到 backups_v1
+on:
+  workflow_dispatch:
+    inputs:
+      members:
+        description: 'JSON 陣列，例：[{"name":"王天暘","ind":"短影音製作","mentor":"","join":"115.08.20","note":"預計 8/20 授證"}]'
+        required: true
+        type: string
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 逐一新增村民（沿用 add-member.js）
+        env:
+          MEMBERS: ${{ inputs.members }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const arr = JSON.parse(process.env.MEMBERS);
+            if (!Array.isArray(arr) || !arr.length) throw new Error("members 必須是非空 JSON 陣列");
+            arr.forEach((m, i) => fs.writeFileSync(`_m${i}.json`, JSON.stringify(m)));
+            fs.writeFileSync("_count", String(arr.length));
+          '
+          for i in $(seq 0 $(($(cat _count) - 1))); do
+            echo "::group::新增第 $((i + 1)) 位"
+            node add-member.js "_m$i.json"
+            echo "::endgroup::"
+          done

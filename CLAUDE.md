@@ -33,7 +33,7 @@
 |---|---|
 | 「更新數據」 | **已自動化**：GitHub Actions 每週日 21:30（台灣時間）抓紅綠燈檢視表，內容有變才寫入 refdata（腳本內建變化偵測）。要立即更新：觸發該 workflow（Actions 頁 Run workflow，或由 AI 經 API 觸發）；本機亦可 `node update-refdata.js`。注意：repo 60 天無 commit 時 GitHub 會停用排程，重新啟用即可 |
 | 「某某出村了，封存」 | **網頁即可操作**（2026/07 起）：⚙️ 工具 → 協調員模式（密碼 8888）→ 該員 100% 時卡片上的「🎓 完成出村」，會自動備份到 `backups_v1` 再搬進 `archive_v1`。亦可用 `archive-graduates.js` 腳本模式 |
-| 「新增會員」 | **網頁即可操作**：協調員模式 → 總覽底部「➕ 新增村民」表單（加入新版 17 項）。刪除（非出村）仍用 `migrate-remove-member.js` 模式搬遷 |
+| 「新增會員」 | **網頁即可操作**：協調員模式 → 總覽底部「➕ 新增村民」表單（加入 17 項）。AI／批次新增：觸發 GitHub Actions「新增村民」workflow，members 填 JSON 陣列（沿用 `add-member.js`，會自動備份到 `backups_v1`）。刪除（非出村）仍用 `migrate-remove-member.js` 模式搬遷 |
 | 「改檢核項目/樣式」 | 直接改 `index.html`，push |
 
 ## ⚠️ 鐵則
