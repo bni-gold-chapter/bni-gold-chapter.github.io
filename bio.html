@@ -271,9 +271,12 @@ function pad2(n){ return String(n).padStart(2,'0'); }
 function nowStr(){ const d=new Date();
   return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate()); }
 function newKey(){
-  const c='abcdefghijkmnpqrstuvwxyz23456789'; let s='';
-  const a=new Uint8Array(10); (crypto.getRandomValues||(x=>x))(a);
-  for(let i=0;i<10;i++) s+=c[a[i]%c.length];
+  const c='abcdefghijkmnpqrstuvwxyz23456789';
+  const a=new Uint8Array(10);
+  // 注意：getRandomValues 必須以 crypto 當 this 呼叫，拆出來單獨叫會 Illegal invocation
+  if(window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(a);
+  else for(let i=0;i<10;i++) a[i]=Math.floor(Math.random()*256);
+  let s=''; for(let i=0;i<10;i++) s+=c[a[i]%c.length];
   return s;
 }
 /* 這份表的所有欄位 id（含清單欄位） */
@@ -639,7 +642,7 @@ function renderAdmin(){
       <div class="nm" style="font-size:15px">➕ 從追蹤名單建立</div>
       <div class="meta" style="margin-bottom:10px">點一下就會幫他建立一份空白四加一表並產生專屬連結</div>
       <div class="btnrow">${seed.map(m=>
-        `<button class="btn" onclick="createFor('${esc(m.name)}')">${esc(m.name)}</button>`).join('')}</div>
+        `<button class="btn" data-n="${esc(m.name)}" onclick="createFor(this.dataset.n)">${esc(m.name)}</button>`).join('')}</div>
     </div>` : '';
   $('view').innerHTML =
     `<div class="note">把每個人的<b>專屬連結</b>私訊給他本人，他點開就能直接填、自動儲存。</div>` +
@@ -653,10 +656,15 @@ function renderAdmin(){
 function createFor(name){
   name = (name||'').trim();
   if(!name){ alert('請輸入姓名'); return; }
-  const k = newKey();
-  firebase.database().ref(NODE+'/'+k).set({
-    name, data:{ name }, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:'導師/幹部'
-  });
+  if(!SHARED){ alert('雲端未連線，請重新整理後再試。'); return; }
+  try{
+    const k = newKey();
+    firebase.database().ref(NODE+'/'+k).set({
+      name, data:{ name }, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:'導師/幹部'
+    }).then(()=>{
+      const el = $('newName'); if(el) el.value='';
+    }).catch(e=>alert('建立失敗：'+(e.message||e)));
+  }catch(e){ alert('建立失敗：'+(e.message||e)); }
 }
 function copyTxt(btn, txt){
   navigator.clipboard.writeText(txt).then(()=>{
