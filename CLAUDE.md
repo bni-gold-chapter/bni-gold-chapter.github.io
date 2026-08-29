@@ -18,7 +18,11 @@
 
 ## 系統架構（單頁應用，無後端伺服器）
 
-- **`index.html`**：整個網站（HTML+CSS+JS 單檔）。改完 `git push` 即自動部署（GitHub Pages，約 1–3 分鐘生效）。
+- **`index.html`**：出村檢核追蹤表（HTML+CSS+JS 單檔）。改完 `git push` 即自動部署（GitHub Pages，約 1–3 分鐘生效）。
+- **`bio.html`**：**四加一表**填寫系統（2026/08 新增）。新會員用專屬連結 `bio.html?m=<key>` 填寫、自動存雲端；導師／領導團隊進 `bio.html` 輸入密碼（同 8888）可看全部、產生連結。
+  - 資料節點 `bio_v1/<key>` = `{name, data:{欄位…}, createdAt, updatedAt, updatedBy}`；照片以裁切後的 JPEG dataURL 存在 `data` 內。
+  - **匯出 PPT**：瀏覽器用 JSZip 打開 `bio-template.pptx`，把 `{{token}}` 換成填寫內容 → 版面與原版完全一致。
+  - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT 產生（在表格空格與文字框注入 token）。**原始 PPT 若改版，重跑此腳本即可**，不要手改模板。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
   - `tracker_v7`：進行中檢核資料 `{mlist:1, old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[], oldMembers:[…], newMembers:[…]}`；狀態 0=未開始 1=完成 2=進行中。**2026/07 起名單（oldMembers/newMembers）存於節點內**，網頁協調員模式可直接封存／新增，不再需要為名單異動 bump 版本；index.html 內的名單陣列僅作首次種子。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
