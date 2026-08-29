@@ -21,7 +21,8 @@
 - **`index.html`**：出村檢核追蹤表（HTML+CSS+JS 單檔）。改完 `git push` 即自動部署（GitHub Pages，約 1–3 分鐘生效）。
 - **`bio.html`**：**四加一表**填寫系統（2026/08 新增）。新會員用專屬連結 `bio.html?m=<key>` 填寫、自動存雲端；導師／領導團隊進 `bio.html` 輸入密碼（同 8888）可看全部、產生連結。
   - 資料節點 `bio_v1/<key>` = `{name, data:{欄位…}, createdAt, updatedAt, updatedBy}`；照片以裁切後的 JPEG dataURL 存在 `data` 內。
-  - **匯出 PPT**：瀏覽器用 JSZip 打開 `bio-template.pptx`，把 `{{token}}` 換成填寫內容 → 版面與原版完全一致。
+  - **匯出 PPT**：瀏覽器用 JSZip 打開 `bio-template.pptx`，把 `{{token}}` 換成填寫內容 → 版面與原版完全一致；照片與 QRcode 以 `<p:pic>` 塞進 `slides.json` 指定的位置。
+  - **匯出 PDF**：`slides/` 內是 23 張純設計背景圖 + `slides.json`（每個填寫方框的座標／字級／對齊）。網頁疊上文字排出 1280×720px 的橫式投影片，列印即 PDF（`@page size:13.333in 7.5in`）。這兩樣由 `tools/build-slide-view.py` 從模板產生，**模板改了就要重跑**。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT 產生（在表格空格與文字框注入 token）。**原始 PPT 若改版，重跑此腳本即可**，不要手改模板。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。

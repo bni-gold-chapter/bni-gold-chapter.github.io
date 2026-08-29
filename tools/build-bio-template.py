@@ -25,7 +25,7 @@ EDITS = [
     (9, CELL, (0, 7), 'b_zodiac'), (9, CELL, (0, 10), 'b_editdate'),
     (9, CELL, (1, 2), 'b_company'), (9, CELL, (1, 8), 'b_edu'),
     (9, CELL, (2, 2), 'b_job'), (9, CELL, (3, 2), 'b_pro'), (9, CELL, (4, 2), 'b_addr'),
-    (9, CELL, (5, 2), 'b_prev1'), (9, CELL, (5, 7), 'b_prev1y'), (9, CELL, (5, 10), 'b_cury'),
+    (9, CELL, (5, 2), 'b_prev1'), (9, CELL, (5, 7), 'b_prev1y'), (9, CELL, (5, 11), 'b_cury'),
     (9, CELL, (6, 2), 'b_prev2'), (9, CELL, (6, 7), 'b_prev2y'),
     # ── slide10 會員資料表2 個人資訊 ──
     (10, CELL, (0, 2), 'p_spouse'), (10, CELL, (1, 2), 'p_kids'), (10, CELL, (2, 2), 'p_pets'),
