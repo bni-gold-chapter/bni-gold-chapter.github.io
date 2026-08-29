@@ -59,6 +59,9 @@
   .row>*{flex:1;min-width:0}
   .row .narrow{flex:0 0 96px}
   .numbered{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+  .autorow{display:flex;gap:8px;align-items:stretch}
+  .autorow input{flex:1;min-width:0}
+  .autobtn{flex:0 0 auto;padding:12px 14px;font-size:14px;white-space:nowrap}
   .numbered .n{flex:0 0 26px;height:44px;display:flex;align-items:center;justify-content:center;
     color:var(--mut);font-size:13px;font-weight:800}
   /* ── 按鈕 ── */
@@ -175,9 +178,11 @@ const TPL = 'bio-template.pptx'; // PPT 模板（含 {{token}}）
 const SECTIONS = [
   { id:'cover', title:'封面資料', sub:'姓名、產業、大頭照', fields:[
     {id:'name',      label:'姓名',        type:'text', ph:'王小明'},
-    {id:'nameEn',    label:'英文名',      type:'text', ph:'WANG XIAO MING'},
+    {id:'nameEn',    label:'英文名',      type:'text', ph:'WANG XIAO MING',
+      auto:{kind:'name', from:'name'}, hint:'按「自動」可由中文姓名產生拼音；若與護照拼音不同請直接改'},
     {id:'industry',  label:'產業名稱',    type:'text', ph:'居家清潔'},
-    {id:'industryEn',label:'產業英文名',  type:'text', ph:'HOME CLEANING'},
+    {id:'industryEn',label:'產業英文名',  type:'text', ph:'HOME CLEANING',
+      auto:{kind:'industry', from:'industry'}, hint:'按「自動」可由產業名稱翻譯'},
     {id:'photo',     label:'個人大頭照',  type:'photo', ratio:3/4, hint:'直式，會自動裁切成封面用的比例'},
   ]},
   { id:'slogan', title:'SLOGAN 頁', sub:'一句話介紹你', fields:[
@@ -253,6 +258,281 @@ const SECTIONS = [
   { id:'grid', title:'產業九宮格', sub:'你周圍的 8 個相關行業', list:{prefix:'gr_', n:8,
       ph:'水電師傅', label:'相關行業'}, fields:[] },
 ];
+
+
+/* ═══════════════ 中→英 對照表（離線，不打外部 API）═══════════════
+   姓名走漢語拼音羅馬化；產業走 BNI 常見行業對照。兩者都只是「建議值」，
+   使用者可以直接改（護照拼音常是威妥瑪，跟漢語拼音不同）。 */
+const SURNAME_TXT = `王WANG 李LI 張ZHANG 劉LIU 陳CHEN 楊YANG 黃HUANG 趙ZHAO 吳WU 周ZHOU
+徐XU 孫SUN 馬MA 朱ZHU 胡HU 郭GUO 何HE 高GAO 林LIN 羅LUO 鄭ZHENG 梁LIANG 謝XIE 宋SONG
+唐TANG 許HSU 鄧DENG 馮FENG 韓HAN 曹CAO 曾TSENG 彭PENG 蕭HSIAO 蔡TSAI 潘PAN 田TIEN
+董TUNG 袁YUAN 于YU 余YU 葉YEH 蔣CHIANG 杜TU 蘇SU 魏WEI 程CHENG 呂LU 丁TING 沈SHEN
+任JEN 姚YAO 盧LU 傅FU 鐘CHUNG 鍾CHUNG 姜CHIANG 崔TSUI 譚TAN 廖LIAO 范FAN 汪WANG
+陸LU 金CHIN 石SHIH 戴TAI 賈CHIA 韋WEI 夏HSIA 邱CHIU 方FANG 侯HOU 鄒TSOU 熊HSIUNG
+孟MENG 秦CHIN 白PAI 江CHIANG 薛HSUEH 尹YIN 段TUAN 雷LEI 黎LI 史SHIH 龍LUNG 陶TAO
+賀HO 顧KU 毛MAO 郝HAO 龔KUNG 邵SHAO 萬WAN 錢CHIEN 嚴YEN 武WU 莫MO 孔KUNG 向HSIANG
+湯TANG 常CHANG 溫WEN 康KANG 施SHIH 文WEN 洪HUNG 翁WENG 卓CHO 藍LAN 莊CHUANG 詹CHAN
+顏YEN 柯KO 巫WU 簡CHIEN 游YU 童TUNG 涂TU 歐OU 賴LAI 練LIEN 官KUAN 傅FU 甘KAN 詹CHAN`;
+
+const PINYIN_TXT = `一YI 乙YI 丁TING 力LI 又YU 三SAN 上SHANG 下HSIA 也YEH 千CHIEN 大TA
+子TZU 小HSIAO 山SHAN 川CHUAN 工KUNG 己CHI 中CHUNG 丹TAN 之CHIH 予YU 云YUN 五WU
+仁JEN 仇CHIU 今CHIN 介CHIEH 元YUAN 允YUN 內NEI 公KUNG 六LIU 分FEN 化HUA 升SHENG
+午WU 友YU 天TIEN 太TAI 夫FU 孔KUNG 少SHAO 尤YU 尹YIN 尺CHIH 心HSIN 手SHOU 支CHIH
+文WEN 斗TOU 方FANG 日JIH 月YUEH 木MU 比PI 水SHUI 火HUO 王WANG 世SHIH 丘CHIU 主CHU
+乎HU 以YI 冬TUNG 出CHU 加CHIA 功KUNG 包PAO 北PEI 半PAN 卡KA 古KU 可KO 台TAI 右YU
+史SHIH 司SSU 只CHIH 央YANG 巧CHIAO 布PU 平PING 幼YU 弘HUNG 必PI 戊WU 正CHENG 民MIN
+永YUNG 玉YU 瓜KUA 甘KAN 生SHENG 用YUNG 田TIEN 由YU 甲CHIA 申SHEN 白PAI 皮PI 目MU
+石SHIH 示SHIH 立LI 交CHIAO 亦YI 伊YI 伍WU 光KUANG 全CHUAN 冰PING 列LIEH 匡KUANG
+印YIN 各KO 合HO 吉CHI 同TUNG 名MING 后HOU 向HSIANG 回HUI 因YIN 圭KUEI 地TI 在TSAI
+好HAO 如JU 妃FEI 字TZU 存TSUN 宇YU 守SHOU 安AN 寺SSU 尖CHIEN 州CHOU 帆FAN 年NIEN
+式SHIH 忙MANG 成CHENG 收SHOU 早TSAO 旭HSU 曲CHU 有YU 朵TO 朱CHU 江CHIANG 池CHIH
+汝JU 灰HUI 牟MOU 百PAI 竹CHU 米MI 羊YANG 羽YU 老LAO 考KAO 而ERH 耳ERH 肉JOU 自TZU
+至CHIH 舟CHOU 色SE 艾AI 行HSING 衣YI 西HSI 佑YU 何HO 佛FO 作TSO 你NI 佩PEI 佳CHIA
+使SHIH 侖LUN 兌TUI 免MIEN 兒ERH 兩LIANG 具CHU 典TIEN 函HAN 到TAO 制CHIH 卓CHO
+協HSIEH 卷CHUAN 取CHU 受SHOU 味WEI 命MING 和HO 固KU 坤KUN 坦TAN 坪PING 夜YEH 奇CHI
+奈NAI 奉FENG 妹MEI 妮NI 姍SHAN 始SHIH 姓HSING 委WEI 孟MENG 季CHI 宗TSUNG 定TING
+宜YI 宙CHOU 尚SHANG 居CHU 屈CHU 岡KANG 岩YEN 岳YUEH 幸HSING 底TI 延YEN 弦HSIEN
+彼PI 往WANG 征CHENG 忠CHUNG 念NIEN 忻HSIN 怡YI 性HSING 或HUO 房FANG 承CHENG 抱PAO
+放FANG 政CHENG 於YU 昀YUN 昆KUN 昌CHANG 明MING 昕HSIN 易YI 昔HSI 服FU 杭HANG 東TUNG
+林LIN 果KUO 松SUNG 板PAN 枋FANG 析HSI 欣HSIN 武WU 沁CHIN 沅YUAN 沐MU 沛PEI 沙SHA
+沿YEN 治CHIH 泓HUNG 法FA 泛FAN 波PO 泳YUNG 泰TAI 炎YEN 炘HSIN 爭CHENG 玖CHIU 玟WEN
+玫MEI 直CHIH 知CHIH 社SHE 秉PING 空KUNG 竺CHU 竿KAN 芊CHIEN 芝CHIH 芬FEN 芯HSIN
+花HUA 芳FANG 表PIAO 迎YING 近CHIN 邱CHIU 采TSAI 金CHIN 長CHANG 門MEN 阜FU 阿A
+青CHING 非FEI 亭TING 亮LIANG 侯HOU 俊CHUN 俐LI 保PAO 信HSIN 冠KUAN 剛KANG 勇YUNG
+南NAN 卻CHUEH 厚HOU 品PIN 哈HA 型HSING 垚YAO 城CHENG 奕YI 姿TZU 威WEI 姵PEI 娃WA
+孩HAI 客KO 宣HSUAN 室SHIH 宥YU 封FENG 屋WU 巷HSIANG 帥SHUAI 帝TI 幽YU 度TU 建CHIEN
+弭MI 待TAI 律LU 後HOU 怒NU 思SSU 怡YI 急CHI 恆HENG 恰CHIA 扁PIEN 拓TO 拾SHIH
+政CHENG 故KU 施SHIH 春CHUN 昭CHAO 映YING 昱YU 昶CHANG 是SHIH 星HSING 昴MAO 柏PO
+某MOU 染JAN 柔JOU 柯KO 柳LIU 查CHA 柴CHAI 段TUAN 毒TU 泉CHUAN 洋YANG 洲CHOU 津CHIN
+洪HUNG 洛LO 派PAI 流LIU 洽CHIA 為WEI 珍CHEN 玲LING 珊SHAN 珀PO 甚SHEN 界CHIEH
+畏WEI 疫YI 皆CHIEH 皇HUANG 盈YING 相HSIANG 眉MEI 看KAN 砂SHA 研YEN 秋CHIU 科KO
+秒MIAO 穿CHUAN 突TU 竿KAN 紀CHI 紅HUNG 紈WAN 約YUEH 紆YU 美MEI 羿YI 耶YEH 胡HU
+致CHIH 苓LING 苗MIAO 若JO 苔TAI 英YING 茂MAO 范FAN 茄CHIA 虹HUNG 衍YEN 貞CHEN
+迪TI 述SHU 郁YU 重CHUNG 限HSIEN 面MIEN 革KO 韋WEI 音YIN 頁YEH 風FENG 飛FEI 首SHOU
+香HSIANG 修HSIU 倍PEI 倫LUN 值CHIH 借CHIEH 倩CHIEN 倪NI 候HOU 倚YI 個KO 們MEN
+倒TAO 兼CHIEN 冥MING 凌LING 剛KANG 原YUAN 哲CHE 唐TANG 埔PU 娟CHUAN 娜NA 孫SUN
+家CHIA 宸CHEN 容JUNG 宮KUNG 宰TSAI 展CHAN 峰FENG 島TAO 差CHA 席HSI 庫KU 庭TING
+座TSO 弱JO 徐HSU 恩EN 恭KUNG 息HSI 悅YUEH 悟WU 拳CHUAN 振CHEN 挺TING 效HSIAO
+料LIAO 旁PANG 旅LU 時SHIH 晉CHIN 晏YEN 書SHU 朕CHEN 朗LANG 案AN 桂KUEI 桃TAO
+框KUANG 桐TUNG 株CHU 格KO 桔CHIEH 桑SANG 桓HUAN 桉AN 殊SHU 氣CHI 泰TAI 浩HAO
+浪LANG 浮FU 涂TU 涇CHING 消HSIAO 涓CHUAN 海HAI 涵HAN 烈LIEH 烏WU 特TE 珮PEI
+珠CHU 班PAN 珪KUEI 現HSIEN 琉LIU 留LIU 畜CHU 疾CHI 益YI 真CHEN 眠MIEN 矩CHU
+祐YU 祖TSU 祝CHU 神SHEN 秘MI 租TSU 秤CHENG 秦CHIN 站CHAN 笑HSIAO 粉FEN 紋WEN
+納NA 純CHUN 紗SHA 紙CHIH 級CHI 素SU 索SO 缺CHUEH 翁WENG 翅CHIH 耕KENG 耗HAO
+能NENG 脈MO 航HANG 般PAN 芽YA 荀HSUN 荃CHUAN 草TSAO 荒HUANG 蚊WEN 衰SHUAI 記CHI
+討TAO 訊HSUN 訓HSUN 託TO 豹PAO 財TSAI 貢KUNG 起CHI 軒HSUAN 軔JEN 迴HUI 逃TAO
+迷MI 追CHUI 退TUI 送SUNG 逆NI 郡CHUN 酌CHO 配PEI 酒CHIU 針CHEN 釘TING 閃SHAN
+院YUAN 陣CHEN 除CHU 陡TOU 隻CHIH 飢CHI 馬MA 骨KU 高KAO 鬥TOU 鬼KUEI 乾CHIEN
+偉WEI 健CHIEN 偶OU 側TSE 停TING 動TUNG 務WU 區CHU 商SHANG 唯WEI 售SHOU 唱CHANG
+啟CHI 圈CHUAN 國KUO 域YU 執CHIH 培PEI 基CHI 堂TANG 堅CHIEN 堆TUI 婉WAN 婕CHIEH
+婷TING 婦FU 密MI 專CHUAN 尉WEI 將CHIANG 屠TU 崇CHUNG 崎CHI 崑KUN 崙LUN 崗KANG
+巢CHAO 常CHANG 康KANG 庸YUNG 張CHANG 強CHIANG 彩TSAI 彬PIN 得TE 徠LAI 御YU 悉HSI
+悠YU 情CHING 惟WEI 惠HUI 惇TUN 掃SAO 授SHOU 掌CHANG 排PAI 探TAN 接CHIEH 控KUNG
+推TUI 敏MIN 教CHIAO 敘HSU 敖AO 族TSU 旋HSUAN 晚WAN 晝CHOU 晨CHEN 曹TSAO 望WANG
+梁LIANG 梅MEI 梓TZU 梧WU 梨LI 械HSIEH 條TIAO 淇CHI 淋LIN 淑SHU 淨CHING 深SHEN
+淳CHUN 添TIEN 清CHING 淵YUAN 淮HUAI 涼LIANG 焌CHUN 爽SHUANG 牽CHIEN 犁LI 猛MENG
+球CHIU 現HSIEN 理LI 琇HSIU 瓶PING 產CHAN 略LUEH 畢PI 異YI 眾CHUNG 眼YEN 祥HSIANG
+移YI 章CHANG 竟CHING 笛TI 符FU 第TI 統TUNG 紹SHAO 細HSI 組TSU 終CHUNG 絃HSIEN
+習HSI 聆LING 聊LIAO 脩HSIU 舵TO 船CHUAN 莉LI 莎SHA 莊CHUANG 莘HSIN 莞KUAN 莫MO
+菁CHING 處CHU 蛇SHE 術SHU 袖HSIU 被PEI 規KUEI 訪FANG 設SHE 許HSU 訣CHUEH 責TSE
+貫KUAN 貨HUO 貪TAN 貧PIN 赦SHE 通TUNG 逐CHU 造TSAO 透TOU 逢FENG 連LIEN 逸YI
+部PU 郭KUO 都TU 野YEH 釣TIAO 閉PI 陪PEI 陰YIN 陳CHEN 陵LING 陶TAO 陷HSIEN 雀CHUEH
+雪HSUEH 章CHANG 頂TING 魚YU 鳥NIAO 鹿LU 麥MAI 麻MA 傑CHIEH 備PEI 傅FU 凱KAI
+勝SHENG 博PO 喆CHE 喜HSI 喬CHIAO 單SHAN 場CHANG 堤TI 堡PAO 堯YAO 報PAO 媛YUAN
+富FU 寒HAN 寓YU 尊TSUN 尋HSUN 就CHIU 嵐LAN 幅FU 帽MAO 幾CHI 廊LANG 復FU 循HSUN
+惑HUO 悲PEI 惟WEI 惰TO 揚YANG 換HUAN 握WO 揮HUI 敦TUN 散SAN 斑PAN 斯SSU 普PU
+景CHING 晴CHING 晶CHING 智CHIH 曾TSENG 替TI 最TSUI 期CHI 朝CHAO 棉MIEN 棋CHI
+棒PANG 棠TANG 森SEN 棣TI 棻FEN 植CHIH 椒CHIAO 款KUAN 欽CHIN 殖CHIH 減CHIEN 渡TU
+渤PO 測TSE 渭WEI 港KANG 游YU 渺MIAO 湃PAI 湊TSOU 湖HU 湘HSIANG 湛CHAN 湧YUNG
+湯TANG 焙PEI 焦CHIAO 然JAN 煮CHU 犀HSI 犁LI 猶YU 琳LIN 琪CHI 琦CHI 琥HU 琬WAN
+琮TSUNG 甥SHENG 甦SU 番FAN 畫HUA 登TENG 發FA 短TUAN 硯YEN 程CHENG 稀HSI 稅SHUI
+童TUNG 筆PI 等TENG 筑CHU 筵YEN 策TSE 粟SU 粥CHOU 絨JUNG 結CHIEH 絕CHUEH 絡LO
+給KEI 絢HSUAN 統TUNG 絲SSU 翔HSIANG 翕HSI 肅SU 舒SHU 舜SHUN 菀WAN 菊CHU 菌CHUN
+菜TSAI 華HUA 菱LING 菲FEI 萁CHI 萍PING 萌MENG 萬WAN 虛HSU 蛟CHIAO 街CHIEH 裁TSAI
+裂LIEH 補PU 覃CHIN 詞TZU 詔CHAO 評PING 証CHENG 詠YUNG 象HSIANG 貴KUEI 買MAI 貸TAI
+費FEI 賀HO 貼TIEH 超CHAO 越YUEH 趁CHEN 距CHU 軸CHOU 軼YI 週CHOU 進CHIN 逸YI
+鄉HSIANG 酥SU 量LIANG 鈞CHUN 鈕NIU 開KAI 閒HSIEN 間CHIEN 閔MIN 陽YANG 隆LUNG
+隊TUI 階CHIEH 雁YEN 雅YA 集CHI 雲YUN 韌JEN 順SHUN 須HSU 飯FAN 飲YIN 馭YU 馮FENG
+黃HUANG 黍SHU 黑HEI 亂LUAN 傭YUNG 債CHAI 傲AO 傳CHUAN 僅CHIN 勤CHIN 勢SHIH
+募MU 匯HUI 嗣SSU 園YUAN 圓YUAN 塑SU 塔TA 塘TANG 塞SAI 填TIEN 塗TU 塩YEN 奧AO
+嫁CHIA 嫌HSIEN 媽MA 嫩NEN 幹KAN 廈HSIA 廉LIEN 微WEI 想HSIANG 惹JO 愁CHOU 愈YU
+意YI 愛AI 感KAN 慈TZU 慎SHEN 搏PO 搓TSO 搜SOU 損SUN 搬PAN 搭TA 新HSIN 暗AN
+暖NUAN 會HUI 楊YANG 楓FENG 楚CHU 業YEH 極CHI 楷KAI 楨CHEN 概KAI 楠NAN 榆YU
+歲SUI 殿TIEN 毀HUI 溪HSI 溫WEN 溶JUNG 滄TSANG 滅MIEH 源YUAN 準CHUN 溜LIU 滑HUA
+煙YEN 煥HUAN 照CHAO 煩FAN 煌HUANG 煒WEI 爺YEH 牒TIEH 猿YUAN 獅SHIH 瑟SE 瑞JUI
+瑜YU 瑛YING 瑋WEI 當TANG 畸CHI 痴CHIH 睜CHENG 睦MU 督TU 睫CHIEH 碎SUI 碑PEI
+碗WAN 碘TIEN 祿LU 禁CHIN 禽CHIN 稚CHIH 稜LENG 稠CHOU 節CHIEH 粱LIANG 經CHING
+綏SUI 綜TSUNG 綠LU 綢CHOU 維WEI 綱KANG 網WANG 綵TSAI 罪TSUI 置CHIH 群CHUN 義YI
+聖SHENG 聘PIN 肆SSU 腦NAO 腸CHANG 腹FU 萬WAN 落LO 葉YEH 葛KO 董TUNG 葡PU 葵KUEI
+蜂FENG 補PU 裕YU 裘CHIU 裝CHUANG 詩SHIH 誠CHENG 詹CHAN 話HUA 該KAI 詳HSIANG
+誇KUA 誌CHIH 資TZU 賈CHIA 賊TSEI 跨KUA 路LU 跳TIAO 較CHIAO 載TSAI 農NUNG 運YUN
+遊YU 道TAO 遂SUI 達TA 違WEI 遍PIEN 鄒TSOU 酬CHOU 鈴LING 鉛CHIEN 鉑PO 鉦CHENG
+鉞YUEH 鉉HSUAN 閘CHA 隘AI 隔KO 電TIEN 雷LEI 零LING 靖CHING 靴HSUEH 頌SUNG
+預YU 頑WAN 頓TUN 飼SSU 馳CHIH 馴HSUN 鼓KU 鼠SHU 僧SENG 儀YI 億YI 儉CHIEN 劃HUA
+劇CHU 劉LIU 劍CHIEN 嘗CHANG 嘉CHIA 嘔OU 嘩HUA 團TUAN 圖TU 塵CHEN 境CHING 墅SHU
+墊TIEN 壽SHOU 夢MENG 奪TO 嫡TI 察CHA 寞MO 寢CHIN 實SHIH 寧NING 寬KUAN 寡KUA
+對TUI 屢LU 幣PI 幕MU 慷KANG 慢MAN 慣KUAN 慧HUI 慨KAI 慕MU 慚TSAN 摘CHAI 摧TSUI
+撇PIEH 撤CHE 摸MO 敲CHIAO 旗CHI 暢CHANG 暨CHI 榜PANG 榕JUNG 榮JUNG 構KOU 槍CHIANG
+槐HUAI 榛CHEN 樺HUA 歌KO 歉CHIEN 滾KUN 滿MAN 漁YU 漂PIAO 漆CHI 漏LOU 演YEN 漢HAN
+漣LIEN 漫MAN 漪YI 漳CHANG 漲CHANG 漾YANG 滴TI 漸CHIEN 熄HSI 熊HSIUNG 熒YING
+熔JUNG 熙HSI 熏HSUN 爾ERH 獄YU 瑤YAO 瑣SO 瑪MA 瑰KUEI 瑾CHIN 甄CHEN 疑YI 監CHIEN
+盡CHIN 睹TU 睿JUI 碧PI 碩SHUO 碳TAN 磁TZU 禎CHEN 福FU 禍HUO 種CHUNG 稱CHENG
+窩WO 竭CHIEH 端TUAN 管KUAN 箕CHI 箋CHIEN 算SUAN 箏CHENG 精CHING 綻CHAN 綺CHI
+綸LUN 綽CHO 緊CHIN 緋FEI 綬SHOU 維WEI 綴CHUI 網WANG 緒HSU 緇TZU 罰FA 翠TSUI
+翡FEI 聚CHU 肇CHAO 腐FU 膏KAO 臺TAI 與YU 舞WU 蓉JUNG 蓋KAI 蓄HSU 蒙MENG 蒜SUAN
+蒲PU 蒸CHENG 蒼TSANG 蓓PEI 蜜MI 裳SHANG 誦SUNG 誓SHIH 誤WU 誥KAO 誨HUI 說SHUO
+誰SHUI 課KO 誼YI 調TIAO 談TAN 諄CHUN 豪HAO 賓PIN 賑CHEN 賒SHE 赫HO 趙CHAO 趕KAN
+輔FU 輕CHING 遜HSUN 遙YAO 遞TI 遠YUAN 遣CHIEN 鄙PI 酵CHIAO 酸SUAN 銀YIN 銅TUNG
+銓CHUAN 銘MING 銳JUI 銷HSIAO 閨KUEI 閩MIN 閣KO 閥FA 際CHI 障CHANG 隙HSI 雌TZU
+需HSU 韶SHAO 領LING 颯SA 餅PING 駁PO 骯ANG 髮FA 魁KUEI 魂HUN 鳴MING 鳳FENG 齊CHI
+億YI 儒JU 凝NING 劑CHI 器CHI 噪TSAO 噹TANG 壇TAN 學HSUEH 導TAO 憲HSIEN 憶YI
+憾HAN 懂TUNG 戰CHAN 擁YUNG 擋TANG 操TSAO 擇TSE 撿CHIEN 擂LEI 曉HSIAO 曇TAN
+樹SHU 樺HUA 橄KAN 橘CHU 機CHI 橋CHIAO 橙CHENG 橫HENG 檀TAN 歷LI 澄CHENG 澈CHE
+澎PENG 潑PO 潔CHIEH 潘PAN 潛CHIEN 潤JUN 潮CHAO 澔HAO 澤TSE 熾CHIH 燃JAN 燈TENG
+燉TUN 燒SHAO 燕YEN 燐LIN 獨TU 璃LI 璋CHANG 璇HSUAN 瓢PIAO 瘦SHOU 盧LU 盤PAN
+瞄MIAO 磨MO 積CHI 穎YING 穌SU 窺KUEI 篤TU 築CHU 篩SHAI 糕KAO 糖TANG 縣HSIEN
+縛FU 縫FENG 縱TSUNG 縮SO 績CHI 繁FAN 缺CHUEH 罹LI 翰HAN 耨NOU 膨PENG 臻CHEN
+興HSING 蕃FAN 蕉CHIAO 蕊JUI 蕙HUI 蕭HSIAO 融JUNG 螢YING 衡HENG 褪TUI 親CHIN
+諦TI 諧HSIEH 諮TZU 諱HUI 諾NO 謀MOU 謂WEI 諺YEN 豫YU 貓MAO 賴LAI 賺CHUAN 赬CHENG
+踴YUNG 輯CHI 輸SHU 辨PIEN 辦PAN 遲CHIH 遵TSUN 選HSUAN 遺YI 遼LIAO 邁MAI 錄LU
+錐CHUI 錘CHUI 錠TING 錢CHIEN 錦CHIN 錫HSI 錮KU 鋼KANG 錶PIAO 閻YEN 隧SUI 險HSIEN
+隨SUI 隸LI 雕TIAO 霍HUO 霓NI 靜CHING 頰CHIA 頸CHING 頻PIN 頭TOU 餐TSAN 館KUAN
+默MO 龍LUNG 優YU 償CHANG 儲CHU 勵LI 嚀NING 壕HAO 壓YA 嬰YING 孺JU 屢LU 幫PANG
+應YING 懇KEN 戴TAI 擊CHI 擠CHI 擬NI 擦TSA 檢CHIEN 檔TANG 檜KUEI 濕SHIH 濟CHI
+濤TAO 濱PIN 濯CHO 燦TSAN 燥TSAO 燭CHU 營YING 爵CHUEH 環HUAN 瞭LIAO 瞬SHUN 瞳TUNG
+矯CHIAO 磷LIN 禪CHAN 禧HSI 穗SUI 篷PENG 簇TSU 簍LOU 糠KANG 糜MI 縷LU 縴CHIEN
+繃PENG 總TSUNG 績CHI 繆MIAO 罄CHING 聯LIEN 聰TSUNG 聲SHENG 臨LIN 舉CHU 艱CHIEN
+薄PO 薇WEI 薛HSUEH 薪HSIN 薦CHIEN 薯SHU 虧KUI 螺LO 蟄CHE 褸LU 講CHIANG 謝HSIEH
+謙CHIEN 謠YAO 豁HUO 賽SAI 購KOU 賺CHUAN 蹈TAO 蹉TSO 輿YU 轄HSIA 輾CHAN 避PI
+邀YAO 邂HSIEH 醜CHOU 鍊LIEN 鍋KUO 鍍TU 鍵CHIEN 鍾CHUNG 鎂MEI 闊KUO 闆PAN 隱YIN
+雖SUI 霜SHUANG 霞HSIA 鞠CHU 韓HAN 顆KO 餵WEI 騁CHENG 駿CHUN 鮮HSIEN 鴻HUNG 黛TAI
+點TIEN 叢TSUNG 嚮HSIANG 壘LEI 擴KUO 擾JAO 檬MENG 檳PIN 櫃KUEI 歸KUEI 瀉HSIEH
+瀋SHEN 濺CHIEN 燻HSUN 燿YAO 爵CHUEH 甕WENG 瓊CHIUNG 癒YU 瞻CHAN 礎CHU 禮LI
+穠NUNG 竄TSUAN 簡CHIEN 簫HSIAO 糧LIANG 織CHIH 繕SHAN 繞JAO 翹CHIAO 職CHIH 舊CHIU
+薩SA 藍LAN 藏TSANG 藉CHIEH 藝YI 蟬CHAN 覆FU 謹CHIN 謬MIU 豐FENG 贈TSENG 蹟CHI
+軀CHU 轉CHUAN 醫YI 鎔JUNG 鎖SO 鎮CHEN 鎬HAO 闖CHUANG 雙SHUANG 雛CHU 雜TSA 雞CHI
+額O 顏YEN 題TI 顓CHUAN 騎CHI 鬆SUNG 鵑CHUAN 麓LU 壞HUAI 寵CHUNG 廬LU 懷HUAI
+攀PAN 曝PU 瀚HAN 瀟HSIAO 爆PAO 瓣PAN 疇CHOU 矇MENG 礙AI 禱TAO 穩WEN 簾LIEN
+簿PU 繫HSI 繩SHENG 繪HUI 繹YI 羅LO 藩FAN 藤TENG 蟹HSIEH 譚TAN 譜PU 識SHIH 譯YI
+贊TSAN 蹲TUN 轎CHIAO 辭TZU 邊PIEN 鏗KENG 鏘CHIANG 鏈LIEN 鏡CHING 鏢PIAO 鐘CHUNG
+關KUAN 隴LUNG 難NAN 韻YUN 願YUAN 顛TIEN 類LEI 騙PIEN 鵬PENG 麗LI 嚴YEN 寶PAO
+懸HSUAN 曦HSI 爐LU 犧HSI 瓏LUNG 癢YANG 籌CHOU 籃LAN 繼CHI 耀YAO 藹AI 蘆LU 蘋PING
+蘇SU 藻TSAO 蘊YUN 覺CHUEH 觸CHU 議YI 譽YU 贏YING 躉TUN 辮PIEN 醴LI 釋SHIH 鐘CHUNG
+鐵TIEH 鐸TO 闡CHAN 露LU 響HSIANG 顧KU 饒JAO 騰TENG 儷LI 屬SHU 攜HSIEH 灌KUAN
+爛LAN 癩LAI 籐TENG 續HSU 纍LEI 蘭LAN 辯PIEN 鐮LIEN 鐺TANG 霹PI 露LU 顥HAO 驅CHU
+魔MO 鶴HO 麝SHE 儼YEN 囊NANG 巍WEI 權CHUAN 歡HUAN 灑SA 疊TIEH 籠LUNG 聽TING
+臟TSANG 襲HSI 讀TU 贖SHU 躍YUEH 鑄CHU 鑑CHIEN 霽CHI 韃TA 響HSIANG 顫CHAN 驕CHIAO
+皓HAO 暘YANG 雨YU 震CHEN 淙TSUNG 廷TING 妍YEN 婭YA 嫻HSIEN 昊HAO 晞HSI 晟SHENG
+曜YAO 樂LO 澐YUN 淞SUNG 瑄HSUAN 璟CHING 竑HUNG 縈YING 翎LING 耘YUN 聿YU 芃PENG
+苡YI 茜CHIEN 荏JEN 葳WEI 蓁CHEN 蕎CHIAO 薰HSUN 藺LIN 詒YI 諠HSUAN 豊LI 逵KUEI
+鈺YU 鎧KAI 閎HUNG 陞SHENG 靚CHING 頤YI 馨HSIN 驊HUA 麒CHI 芸YUN 妤YU 彤TUNG
+瑀YU 岑TSEN 祺CHI 筠YUN 翊YI 蕓YUN 諭YU 霈PEI 韜TAO 崧SUNG 峻CHUN 嶸JUNG
+幃WEI 忻HSIN 愷KAI 憬CHING 昀YUN 晢CHE 暐WEI 曄YEH 柏PO 栢PO 榛CHEN 樑LIANG
+澤TSE 潼TUNG 澂CHENG 熠YI 燁YEH 玥YUEH 珉MIN 琍LI 瑢JUNG 甯NING 皚AI 睎HSI
+祈CHI 禕YI 竺CHU 綵TSAI 縝CHEN 羚LING 翌YI 聃TAN 芷CHIH 苹PING 茵YIN 荷HO
+菽SHU 萓YI 蓉JUNG 蕈HSUN 薇WEI 蘅HENG 詠YUNG 誠CHENG 諾NO 謙CHIEN 豪HAO
+赫HO 踰YU 邦PANG 郁YU 酈LI 鈺YU 銓CHUAN 錞CHUN 鍇KAI 鑀AI 阡CHIEN 靜CHING
+鞍AN 頡CHIEH 颺YANG 驊HUA 鳶YUAN 鸝LI 麟LIN 黛TAI 鼎TING 齊CHI 鑫HSIN 灣WAN 讚TSAN 鑼LO 鑽TSUAN 鸚YING 鬱YU 豔YEN 鑰YUEH 鸞LUAN`;
+
+const INDUSTRY_TXT = `居家清潔=HOME CLEANING 專業清潔=PROFESSIONAL CLEANING 清潔服務=CLEANING SERVICE
+磁磚工程=TILE ENGINEERING 短影音製作=SHORT VIDEO PRODUCTION 影片製作=VIDEO PRODUCTION
+商業影像規劃=COMMERCIAL IMAGING 攝影=PHOTOGRAPHY 系統櫃=SYSTEM CABINETS
+防水工程=WATERPROOFING 拆除工程=DEMOLITION 輕隔間=LIGHTWEIGHT PARTITION
+居家設計=HOME DESIGN 室內設計=INTERIOR DESIGN 法式甜點=FRENCH PASTRY
+鍍膜美容=CAR COATING 汽車美容=CAR DETAILING 水電工程=PLUMBING & ELECTRICAL
+油漆工程=PAINTING 鐵皮工程=SHEET METAL WORK 木工=CARPENTRY 泥作=MASONRY
+統包工程=GENERAL CONTRACTING 裝潢=RENOVATION 空調工程=HVAC 消防工程=FIRE SAFETY
+鋁門窗=ALUMINUM WINDOWS 玻璃工程=GLASS WORKS 招牌廣告=SIGNAGE 窗簾=CURTAINS
+地板工程=FLOORING 廚具=KITCHEN CABINETRY 衛浴設備=BATHROOM FIXTURES
+家具=FURNITURE 寢具=BEDDING 燈飾=LIGHTING 建材=BUILDING MATERIALS
+房地產=REAL ESTATE 不動產仲介=REAL ESTATE AGENCY 代書=SCRIVENER 地政士=LAND ADMINISTRATION
+建築師=ARCHITECT 土木技師=CIVIL ENGINEER 保險=INSURANCE 產險=PROPERTY INSURANCE
+壽險=LIFE INSURANCE 銀行=BANKING 財務規劃=FINANCIAL PLANNING 會計師=CPA
+記帳士=BOOKKEEPING 稅務=TAXATION 律師=ATTORNEY 法律諮詢=LEGAL CONSULTING
+專利商標=PATENT & TRADEMARK 人力資源=HUMAN RESOURCES 人力仲介=STAFFING
+教育訓練=CORPORATE TRAINING 補習班=CRAM SCHOOL 才藝教學=TALENT EDUCATION
+語言教學=LANGUAGE EDUCATION 心理諮商=PSYCHOLOGICAL COUNSELING 命理=METAPHYSICS
+中醫=CHINESE MEDICINE 牙醫=DENTISTRY 診所=CLINIC 藥局=PHARMACY 醫美=MEDICAL AESTHETICS
+物理治療=PHYSICAL THERAPY 整復推拿=CHIROPRACTIC 按摩=MASSAGE 美容=BEAUTY
+美髮=HAIR SALON 美甲=NAIL SALON 紋繡=SEMI-PERMANENT MAKEUP 婚紗=BRIDAL
+婚禮顧問=WEDDING PLANNING 花藝=FLORAL DESIGN 禮品=GIFTS 印刷=PRINTING
+設計印刷=DESIGN & PRINTING 平面設計=GRAPHIC DESIGN 網頁設計=WEB DESIGN
+程式開發=SOFTWARE DEVELOPMENT 資訊服務=IT SERVICES 電腦維修=COMPUTER REPAIR
+網路行銷=DIGITAL MARKETING 社群行銷=SOCIAL MEDIA MARKETING 廣告=ADVERTISING
+公關=PUBLIC RELATIONS 品牌顧問=BRAND CONSULTING 企業顧問=BUSINESS CONSULTING
+會展=MICE 活動企劃=EVENT PLANNING 主持人=EMCEE 旅遊=TRAVEL 旅行社=TRAVEL AGENCY
+餐飲=FOOD & BEVERAGE 餐廳=RESTAURANT 咖啡=COFFEE 烘焙=BAKERY 手搖飲=BEVERAGE SHOP
+食品加工=FOOD PROCESSING 農產品=AGRICULTURAL PRODUCTS 有機食品=ORGANIC FOOD
+保健食品=HEALTH SUPPLEMENTS 生技=BIOTECHNOLOGY 化妝品=COSMETICS
+服飾=APPAREL 鞋類=FOOTWEAR 精品=BOUTIQUE 珠寶=JEWELRY 鐘錶=WATCHES
+眼鏡=OPTICAL 寵物=PET SERVICES 寵物美容=PET GROOMING 汽車銷售=AUTO SALES
+汽車保養=AUTO MAINTENANCE 機車=MOTORCYCLE 物流=LOGISTICS 貨運=FREIGHT
+搬家=MOVING SERVICE 倉儲=WAREHOUSING 國際貿易=INTERNATIONAL TRADE 進出口=IMPORT & EXPORT
+製造業=MANUFACTURING 機械加工=MACHINING 模具=MOLD MAKING 五金=HARDWARE
+包裝=PACKAGING 紡織=TEXTILE 塑膠=PLASTICS 電子零件=ELECTRONIC COMPONENTS
+太陽能=SOLAR ENERGY 節能設備=ENERGY SAVING 環保工程=ENVIRONMENTAL ENGINEERING
+資源回收=RECYCLING 保全=SECURITY SERVICE 監視系統=SURVEILLANCE SYSTEMS
+禮儀服務=FUNERAL SERVICES 長照=LONG-TERM CARE 托嬰=CHILDCARE 健身=FITNESS
+瑜珈=YOGA 運動用品=SPORTING GOODS 音響=AUDIO EQUIPMENT 樂器=MUSICAL INSTRUMENTS`;
+
+function parseMap(txt, sep){
+  const m = {};
+  txt.split(/\s+/).forEach(t => {
+    if(!t) return;
+    if(sep){ const i = t.indexOf(sep); if(i > 0) m[t.slice(0,i)] = t.slice(i+1); }
+    else { const k = t[0]; const v = t.slice(1); if(k && v) m[k] = v; }
+  });
+  return m;
+}
+const SURNAME = parseMap(SURNAME_TXT);
+const PINYIN  = Object.assign({}, SURNAME, parseMap(PINYIN_TXT));
+/* 產業表的值含空白，要用整行切 */
+const INDUSTRY = (() => {
+  const m = {};
+  INDUSTRY_TXT.split(/\s(?=[^\s=]+=)/).forEach(t => {
+    const i = t.indexOf('=');
+    if(i > 0) m[t.slice(0,i).trim()] = t.slice(i+1).trim();
+  });
+  return m;
+})();
+
+/* 中文姓名 → 羅馬拼音（姓 + 名，名連字號）*/
+function romanize(name){
+  const chars = (name||'').trim().replace(/\s+/g,'').split('');
+  if(!chars.length) return {text:'', missing:[]};
+  const missing = [];
+  const surname = SURNAME[chars[0]] || PINYIN[chars[0]];
+  if(!surname) missing.push(chars[0]);
+  const given = chars.slice(1).map(c => { const v = PINYIN[c]; if(!v) missing.push(c); return v || '?'; });
+  const text = [surname || '?', given.join('-')].filter(Boolean).join(' ').trim();
+  return {text, missing};
+}
+/* 產業中文 → 英文（先全詞，再找包含的關鍵字）*/
+function industryEnOf(zh){
+  zh = (zh||'').trim();
+  if(!zh) return '';
+  if(INDUSTRY[zh]) return INDUSTRY[zh];
+  const hit = Object.keys(INDUSTRY)
+    .filter(k => zh.includes(k) || k.includes(zh))
+    .sort((a,b) => b.length - a.length)[0];
+  return hit ? INDUSTRY[hit] : '';
+}
+function autoFill(kind, targetId, srcId){
+  const src = (DATA[srcId] || '').trim();
+  if(!src){ alert(kind === 'name' ? '請先填「姓名」' : '請先填「產業名稱」'); return; }
+  if(kind === 'name'){
+    const r = romanize(src);
+    if(!r.text || r.text.includes('?')){
+      alert('有些字不在對照表裡（' + r.missing.join('、') + '），請自己補上或直接手動輸入。');
+    }
+    DATA[targetId] = r.text.replace(/\?/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'').trim();
+  }else{
+    const en = industryEnOf(src);
+    if(!en){ alert('對照表裡沒有「' + src + '」，請手動輸入英文名稱。'); return; }
+    DATA[targetId] = en;
+  }
+  save(); renderForm();
+}
 
 /* ═══════════════ 狀態 ═══════════════ */
 const Q = new URLSearchParams(location.search);
@@ -358,6 +638,13 @@ function fieldHTML(f){
       </div></div>`;
   }
   const cls = f.narrow ? 'narrow' : '';
+  if(f.auto){
+    return `<div class="fld"><label>${esc(f.label)}${hint}</label>
+      <div class="autorow">
+        <input type="text" value="${v}" oninput="setF('${f.id}',this.value)" placeholder="${esc(f.ph||'')}">
+        <button class="btn autobtn" onclick="autoFill('${f.auto.kind}','${f.id}','${f.auto.from}')">✨ 自動</button>
+      </div></div>`;
+  }
   if(f.type === 'area'){
     return `<div class="fld"><label>${esc(f.label)}${hint}</label>
       <textarea rows="2" oninput="setF('${f.id}',this.value);grow(this)"
