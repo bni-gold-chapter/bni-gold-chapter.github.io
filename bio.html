@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>BNI 全鑫白金分會｜四加一表</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0d11; --panel:#141821; --panel2:#1b202b; --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.2);
+    --txt:#eef1f5; --mut:#9aa5b4; --accent:#e10600; --green:#28d17c; --yellow:#f5b301;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);font-size:16px;line-height:1.6;
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    padding-bottom:env(safe-area-inset-bottom)}
+  /* ── 頁首 ── */
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#12151c,#0d1015);
+    border-bottom:2px solid var(--accent);padding:12px 16px calc(12px + env(safe-area-inset-top)) 16px;
+    padding-top:calc(12px + env(safe-area-inset-top))}
+  .htop{display:flex;align-items:center;gap:10px}
+  h1{margin:0;font-size:17px;font-weight:900;letter-spacing:.5px}
+  h1 small{display:block;font-size:11px;font-weight:400;color:var(--mut);letter-spacing:2px;margin-top:2px}
+  .who{margin-left:auto;text-align:right;font-size:12px;color:var(--mut);line-height:1.4}
+  .who b{color:#fff;font-size:14px;display:block}
+  .savetag{font-size:12px;color:var(--green);opacity:0;transition:.25s;white-space:nowrap}
+  .savetag.on{opacity:1}
+  .savetag.err{color:var(--accent);opacity:1}
+  /* ── 進度 ── */
+  .prog{height:5px;background:#000;border-radius:3px;overflow:hidden;margin-top:10px}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#ff6a3d);transition:width .4s}
+  .progtxt{font-size:11.5px;color:var(--mut);margin-top:5px}
+  /* ── 章節 ── */
+  main{padding:14px 14px 120px;max-width:820px;margin:0 auto}
+  .sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden}
+  .sechead{display:flex;align-items:center;gap:10px;padding:15px 16px;cursor:pointer;user-select:none}
+  .sechead:active{background:var(--panel2)}
+  .secno{flex:0 0 30px;height:30px;border-radius:50%;background:#0a0d13;border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#aab4c2}
+  .sec.done .secno{background:rgba(40,209,124,.15);border-color:var(--green);color:var(--green)}
+  .sectitle{flex:1;min-width:0}
+  .sectitle b{display:block;font-size:15.5px}
+  .sectitle span{font-size:11.5px;color:var(--mut)}
+  .caret{color:var(--mut);font-size:13px;transition:transform .2s}
+  .sec.open .caret{transform:rotate(90deg)}
+  .secbody{display:none;padding:0 16px 16px}
+  .sec.open .secbody{display:block}
+  /* ── 欄位 ── */
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:14px;font-weight:700;margin-bottom:6px}
+  .fld .hint{font-size:12px;color:var(--mut);font-weight:400;margin-top:2px}
+  input[type=text],textarea,select{width:100%;background:#080a0e;border:1px solid var(--line);border-radius:10px;
+    color:var(--txt);padding:12px 13px;font-size:16px;font-family:inherit;line-height:1.5}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(225,6,0,.15)}
+  textarea{resize:none;overflow:hidden;min-height:52px}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1;min-width:0}
+  .row .narrow{flex:0 0 96px}
+  .numbered{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+  .numbered .n{flex:0 0 26px;height:44px;display:flex;align-items:center;justify-content:center;
+    color:var(--mut);font-size:13px;font-weight:800}
+  /* ── 按鈕 ── */
+  button{font-family:inherit}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--panel2);
+    color:var(--txt);border:1px solid var(--line2);border-radius:11px;padding:13px 16px;font-size:15px;
+    font-weight:700;cursor:pointer;transition:.15s}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(180deg,#ff1a14,var(--accent));border-color:var(--accent);color:#fff}
+  .btn.wide{width:100%}
+  .btn:disabled{opacity:.5}
+  .btnrow{display:flex;gap:9px;flex-wrap:wrap}
+  /* ── 照片 ── */
+  .photobox{display:flex;gap:13px;align-items:flex-start}
+  .thumb{flex:0 0 104px;height:132px;border-radius:11px;border:1px dashed var(--line2);background:#080a0e;
+    display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;text-align:center;
+    overflow:hidden;cursor:pointer}
+  .thumb.sq{height:104px}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  /* ── 裁切器 ── */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:60;display:flex;align-items:center;
+    justify-content:center;padding:16px}
+  .cropwrap{width:100%;max-width:420px}
+  .cropstage{position:relative;width:100%;aspect-ratio:3/4;background:#000;border-radius:12px;overflow:hidden;
+    touch-action:none;border:1px solid var(--line2)}
+  .cropstage.sq{aspect-ratio:1/1}
+  .cropstage canvas{width:100%;height:100%;display:block}
+  .cropstage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    box-shadow:inset 0 0 0 2px rgba(225,6,0,.75)}
+  .croptip{color:var(--mut);font-size:13px;text-align:center;margin:11px 0}
+  input[type=range]{width:100%;accent-color:var(--accent);height:34px}
+  /* ── 管理端 ── */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:11px}
+  .card .nm{font-size:17px;font-weight:900}
+  .card .meta{font-size:12.5px;color:var(--mut);margin-top:3px}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;margin-left:7px;vertical-align:middle}
+  .pill.ok{background:rgba(40,209,124,.15);color:#7df3b4;border:1px solid var(--green)}
+  .pill.mid{background:rgba(245,179,1,.13);color:#ffdf85;border:1px solid var(--yellow)}
+  .pill.no{background:#161b22;color:#9aa6b5;border:1px solid var(--line2)}
+  .linkbox{width:100%;background:#080a0e;border:1px solid var(--line);border-radius:9px;color:#8fc6ff;
+    padding:9px 11px;font-size:12.5px;margin-top:9px}
+  .empty{color:var(--mut);text-align:center;padding:44px 16px;line-height:1.9}
+  .note{background:rgba(245,179,1,.08);border:1px solid rgba(245,179,1,.3);border-radius:10px;
+    padding:11px 13px;font-size:13px;color:#ffdf85;margin-bottom:13px}
+  /* ── 底部列 ── */
+  .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(13,16,21,.97);
+    border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex;gap:9px;max-width:820px;margin:0 auto}
+  .bottombar .btn{flex:1;padding:14px 10px;font-size:15px}
+  /* ── 列印（匯出 PDF）── */
+  @media print{
+    body{background:#fff;color:#000}
+    header,.bottombar,.sechead .caret,.prog,.progtxt,.btnrow,.note{display:none!important}
+    main{padding:0;max-width:none}
+    .sec{border:none;background:#fff;page-break-inside:avoid;margin-bottom:14px}
+    .secbody{display:block!important;padding:0}
+    .sechead{padding:8px 0;border-bottom:2px solid #e10600}
+    .sectitle b{color:#000;font-size:15px}
+    .sectitle span,.fld .hint{color:#555}
+    .secno{background:#fff;color:#000;border-color:#000}
+    .fld label{color:#000}
+    input[type=text],textarea,select{background:#fff;color:#000;border:none;border-bottom:1px solid #bbb;
+      border-radius:0;padding:3px 0;font-size:13px}
+    textarea{min-height:0}
+    .thumb{border:1px solid #bbb}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htop">
+    <div>
+      <h1>四加一表<small>BNI 全鑫白金分會</small></h1>
+    </div>
+    <div class="who">
+      <b id="whoName">—</b>
+      <span class="savetag" id="savetag">✓ 已儲存</span>
+    </div>
+  </div>
+  <div id="progWrap">
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="progtxt" id="progTxt"></div>
+  </div>
+</header>
+
+<main id="view"></main>
+<div class="bottombar" id="bottombar" style="display:none">
+  <button class="btn" onclick="exportPDF()">🖨 存成 PDF</button>
+  <button class="btn primary" onclick="exportPPT()">📊 匯出 PPT</button>
+</div>
+
+<input id="filepick" type="file" accept="image/*" style="display:none">
+
+<script>
+/* ═══════════════ 設定 ═══════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA9zxiowhwSmWF0hFgemvJiyeofEDvQs1o",
+  authDomain: "bni-tracker-b3ef8.firebaseapp.com",
+  databaseURL: "https://bni-tracker-b3ef8-default-rtdb.firebaseio.com",
+  projectId: "bni-tracker-b3ef8",
+  storageBucket: "bni-tracker-b3ef8.firebasestorage.app",
+  messagingSenderId: "322793389801",
+  appId: "1:322793389801:web:080a432df275e88783fa78",
+  measurementId: "G-NLN6BRQYCQ"
+};
+const NODE = 'bio_v1';           // 四加一表資料
+const TRACKER = 'tracker_v7';    // 借用出村追蹤表的名單
+const COORD_PIN = '8888';        // 導師／領導團隊密碼（與追蹤表一致）
+const TPL = 'bio-template.pptx'; // PPT 模板（含 {{token}}）
+
+/* ═══════════════ 表單結構 ═══════════════
+   每個欄位 id 對應 PPT 模板裡的 token；composed 欄位在匯出時才組合。 */
+const SECTIONS = [
+  { id:'cover', title:'封面資料', sub:'姓名、產業、大頭照', fields:[
+    {id:'name',      label:'姓名',        type:'text', ph:'王小明'},
+    {id:'nameEn',    label:'英文名',      type:'text', ph:'WANG XIAO MING'},
+    {id:'industry',  label:'產業名稱',    type:'text', ph:'居家清潔'},
+    {id:'industryEn',label:'產業英文名',  type:'text', ph:'HOME CLEANING'},
+    {id:'photo',     label:'個人大頭照',  type:'photo', ratio:3/4, hint:'直式，會自動裁切成封面用的比例'},
+  ]},
+  { id:'slogan', title:'SLOGAN 頁', sub:'一句話介紹你', fields:[
+    {id:'slogan',  label:'你的 SLOGAN', type:'area', ph:'讓每個家，乾淨得像新的一樣', hint:'簡短有力，會出現在大字報頁'},
+    {id:'rep',     label:'行業代表',    type:'text', ph:'居家清潔'},
+    {id:'company', label:'公司名稱',    type:'text', ph:'佳佳專業清潔'},
+    {id:'next',    label:'下一位是誰',  type:'text', ph:'王大明', hint:'簡報最後要接的下一位夥伴'},
+  ]},
+  { id:'biz', title:'會員資料表 1｜商業資訊', sub:'公司、學歷、經歷', fields:[
+    {id:'b_birth',  label:'生日',  type:'text', ph:'1985.03.26'},
+    {id:'b_zodiac', label:'星座',  type:'text', ph:'牡羊'},
+    {id:'b_company',label:'公司名稱', type:'text'},
+    {id:'b_edu',    label:'學歷',  type:'text', ph:'○○大學 企管系'},
+    {id:'b_job',    label:'職業',  type:'text'},
+    {id:'b_pro',    label:'專業',  type:'area', hint:'你最擅長、最想被引薦的專業'},
+    {id:'b_addr',   label:'地址',  type:'text'},
+    {id:'b_prev1',  label:'前一份工作類型（1）', type:'text'},
+    {id:'b_prev1y', label:'年資',  type:'text', ph:'5', narrow:true},
+    {id:'b_prev2',  label:'前一份工作類型（2）', type:'text'},
+    {id:'b_prev2y', label:'年資',  type:'text', ph:'3', narrow:true},
+    {id:'b_cury',   label:'目前行業經驗（年）', type:'text', ph:'10', narrow:true},
+  ]},
+  { id:'personal', title:'會員資料表 2｜個人資訊', sub:'家庭、興趣、居住', fields:[
+    {id:'p_spouse',  label:'配偶',   type:'text'},
+    {id:'p_kids',    label:'孩子',   type:'text', ph:'兒子 10 歲、女兒 7 歲'},
+    {id:'p_pets',    label:'寵物',   type:'text'},
+    {id:'p_hobby',   label:'業餘愛好（個人）', type:'area', hint:'自己一個人做的興趣'},
+    {id:'p_activity',label:'感興趣活動（團體）', type:'area', hint:'跟商務發展有關、能開啟話題的活動'},
+    {id:'p_city',    label:'居住地', type:'text'},
+    {id:'p_years',   label:'居住年限（年）', type:'text', ph:'12', narrow:true},
+  ]},
+  { id:'general', title:'會員資料表 3｜綜合資訊', sub:'願望、秘密、成功關鍵', fields:[
+    {id:'g_wish',  label:'我強烈的願望是', type:'area',
+      hint:'5～30 年的願景，用 SMART 原則：明確、可衡量、可達成、相關、有時限'},
+    {id:'g_secret',label:'沒有人知道的祕密', type:'area', hint:'能給你正面評價、引發好奇心的事'},
+    {id:'g_key',   label:'我成功的關鍵',   type:'area', hint:'你的價值觀與人格特質'},
+    {id:'qrcode',  label:'QR Code（官網或 LINE）', type:'photo', ratio:1, hint:'方形，拍照或截圖上傳都可以'},
+  ]},
+  { id:'gains', title:'GAINS 工作表', sub:'目標、成就、興趣、人脈、技巧', fields:[
+    {id:'ga_short',     label:'短期目標', type:'area'},
+    {id:'ga_mid',       label:'中期目標', type:'area'},
+    {id:'ga_long',      label:'長期目標', type:'area'},
+    {id:'ga_accomplish',label:'成就（Accomplishment）', type:'area', hint:'讓你感到驕傲的事'},
+    {id:'ga_interest',  label:'興趣愛好（Interest）',   type:'area'},
+    {id:'ga_network',   label:'人際關係（Networks）',   type:'area', hint:'你參與的組織、社團、公司'},
+    {id:'ga_skill',     label:'技巧（Skills）',         type:'area'},
+  ]},
+  { id:'sphere', title:'業務人脈圈', sub:'10 個能互相引薦的行業', list:{prefix:'cs_', n:10,
+      ph:'室內設計師', label:'相關行業'}, fields:[
+    {id:'cs_top3', label:'前三名（最能幫你完成人脈圈的三個職業）', type:'area'},
+  ]},
+  { id:'clients', title:'最近的十位客戶', sub:'幫夥伴認得你的客戶樣貌', list:{prefix:'cu_', n:10,
+      ph:'王太太／三房兩廳定期清潔', label:'客戶'}, fields:[
+    {id:'cu_note',   label:'客戶備註', type:'area', hint:'他們來自哪裡？你能為他們做什麼？'},
+    {id:'cu_general',label:'一般引薦', type:'area'},
+    {id:'cu_ideal',  label:'理想引薦', type:'area'},
+    {id:'cu_dream',  label:'夢幻引薦', type:'area'},
+    {id:'cu_bad',    label:'不適合的引薦', type:'area'},
+  ]},
+  { id:'dance1', title:'一對一追蹤表 1', sub:'問題 1–4', fields:[
+    {id:'d_q1', label:'1. 請詳細說明你所提供的產品與服務', type:'area', hint:'務必清晰並具體描述'},
+    {id:'d_q2', label:'2. 你與競爭對手有什麼不同？', type:'area', hint:'例：我的產品有五年品質保證'},
+    {id:'d_q3', label:'3. 你的目標市場與主力客群', type:'area', hint:'例：律師、銀行家、會計師'},
+    {id:'d_q4', label:'4. 尚未在分會出現、與你相關的行業', type:'area'},
+  ]},
+  { id:'dance2', title:'一對一追蹤表 2', sub:'問題 5–9', fields:[
+    {id:'d_q5', label:'5. 聽到怎樣的一句話，就是可以幫你引薦的機會？', type:'area'},
+    {id:'d_q6', label:'6. 教我一句好的開場白', type:'area'},
+    {id:'d_q7', label:'7. 我該如何衡量一個引薦的品質？', type:'area'},
+    {id:'d_q8', label:'8. 什麼是不合適的引薦？', type:'area', hint:'例：只向批發商訂一件貨'},
+    {id:'d_q9', label:'9. 一般人對你的業務有什麼誤解？我該如何回應？', type:'area'},
+  ]},
+  { id:'grid', title:'產業九宮格', sub:'你周圍的 8 個相關行業', list:{prefix:'gr_', n:8,
+      ph:'水電師傅', label:'相關行業'}, fields:[] },
+];
+
+/* ═══════════════ 狀態 ═══════════════ */
+const Q = new URLSearchParams(location.search);
+const MKEY = Q.get('m');
+let DATA = {};           // 目前這份表的資料
+let META = {};           // { name, createdAt, updatedAt, updatedBy }
+let ALL = null;          // 管理端：全部表
+let ADMIN = localStorage.getItem('bio_admin') === '1';
+let dbRef = null, SHARED = false, saveTimer = null, applyingRemote = false;
+
+/* ═══════════════ 小工具 ═══════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function pad2(n){ return String(n).padStart(2,'0'); }
+function nowStr(){ const d=new Date();
+  return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate()); }
+function newKey(){
+  const c='abcdefghijkmnpqrstuvwxyz23456789'; let s='';
+  const a=new Uint8Array(10); (crypto.getRandomValues||(x=>x))(a);
+  for(let i=0;i<10;i++) s+=c[a[i]%c.length];
+  return s;
+}
+/* 這份表的所有欄位 id（含清單欄位） */
+function allFieldIds(){
+  const ids=[];
+  SECTIONS.forEach(s=>{
+    if(s.list) for(let i=1;i<=s.list.n;i++) ids.push(s.list.prefix+i);
+    s.fields.forEach(f=>ids.push(f.id));
+  });
+  return ids;
+}
+function filledCount(d){
+  const ids=allFieldIds();
+  let n=0; ids.forEach(i=>{ const v=d[i]; if(v && String(v).trim()) n++; });
+  return {n, total:ids.length};
+}
+
+/* ═══════════════ Firebase ═══════════════ */
+function initSync(){
+  if(!window.firebase){ return; }
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    SHARED = true;
+    if(MKEY){
+      dbRef = firebase.database().ref(NODE+'/'+MKEY);
+      dbRef.on('value', s=>{
+        const v = s.val();
+        if(v){
+          applyingRemote = true;
+          DATA = v.data || {};
+          META = { name:v.name||'', createdAt:v.createdAt, updatedAt:v.updatedAt, updatedBy:v.updatedBy };
+          if(!document.activeElement || !document.activeElement.matches('input,textarea')) renderForm();
+          else { updateProgress(); }
+          applyingRemote = false;
+        }
+      }, err=>{ flag('連線失敗', true); });
+    }
+  }catch(e){ console.warn(e); }
+}
+function flag(msg, err){
+  const t=$('savetag'); if(!t) return;
+  t.textContent = err ? ('⚠ '+msg) : ('✓ '+msg);
+  t.className = 'savetag on' + (err?' err':'');
+  if(!err) setTimeout(()=>t.className='savetag', 1600);
+}
+function save(){
+  if(applyingRemote) return;
+  updateProgress();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    if(!SHARED || !dbRef) { flag('離線，改動未上傳', true); return; }
+    const payload = {
+      name: META.name || DATA.name || '',
+      data: DATA,
+      createdAt: META.createdAt || Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: ADMIN ? '導師/幹部' : (DATA.name || '本人')
+    };
+    dbRef.set(payload).then(()=>flag('已儲存')).catch(()=>flag('儲存失敗', true));
+  }, 700);
+}
+
+/* ═══════════════ 表單畫面 ═══════════════ */
+function fieldHTML(f){
+  const v = esc(DATA[f.id] || '');
+  const hint = f.hint ? `<div class="hint">${esc(f.hint)}</div>` : '';
+  if(f.type === 'photo'){
+    const img = DATA[f.id]
+      ? `<img src="${DATA[f.id]}" alt="">`
+      : '點這裡<br>上傳照片';
+    return `<div class="fld">
+      <label>${esc(f.label)}${hint}</label>
+      <div class="photobox">
+        <div class="thumb${f.ratio===1?' sq':''}" onclick="pickPhoto('${f.id}',${f.ratio})">${img}</div>
+        <div style="flex:1">
+          <button class="btn wide" onclick="pickPhoto('${f.id}',${f.ratio})">📷 ${DATA[f.id]?'換一張':'選擇照片'}</button>
+          ${DATA[f.id]?`<button class="btn wide" style="margin-top:8px" onclick="clearPhoto('${f.id}')">移除</button>`:''}
+        </div>
+      </div></div>`;
+  }
+  const cls = f.narrow ? 'narrow' : '';
+  if(f.type === 'area'){
+    return `<div class="fld"><label>${esc(f.label)}${hint}</label>
+      <textarea rows="2" oninput="setF('${f.id}',this.value);grow(this)"
+        placeholder="${esc(f.ph||'')}">${v}</textarea></div>`;
+  }
+  return `<div class="fld ${cls}"><label>${esc(f.label)}${hint}</label>
+    <input type="text" value="${v}" oninput="setF('${f.id}',this.value)" placeholder="${esc(f.ph||'')}"></div>`;
+}
+function sectionHTML(s, i, open){
+  const ids = [];
+  if(s.list) for(let k=1;k<=s.list.n;k++) ids.push(s.list.prefix+k);
+  s.fields.forEach(f=>ids.push(f.id));
+  const done = ids.length && ids.every(id => DATA[id] && String(DATA[id]).trim());
+  const some = ids.some(id => DATA[id] && String(DATA[id]).trim());
+  let body = '';
+  if(s.list){
+    body += `<div class="fld"><label>${esc(s.list.label)}</label></div>`;
+    for(let k=1;k<=s.list.n;k++){
+      const id = s.list.prefix+k;
+      body += `<div class="numbered"><div class="n">${k}</div>
+        <input type="text" value="${esc(DATA[id]||'')}" oninput="setF('${id}',this.value)"
+          placeholder="${esc(s.list.ph)}"></div>`;
+    }
+  }
+  body += s.fields.map(fieldHTML).join('');
+  return `<section class="sec ${open?'open':''} ${done?'done':''}" id="sec-${s.id}">
+    <div class="sechead" onclick="toggleSec('${s.id}')">
+      <div class="secno">${done?'✓':(some?'·':i+1)}</div>
+      <div class="sectitle"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></div>
+      <div class="caret">▶</div>
+    </div>
+    <div class="secbody">${body}</div>
+  </section>`;
+}
+function renderForm(){
+  $('whoName').textContent = META.name || DATA.name || '';
+  $('bottombar').style.display = 'flex';
+  $('progWrap').style.display = '';
+  const openId = window.__open || SECTIONS[0].id;
+  $('view').innerHTML =
+    `<div class="note">填完會<b>自動儲存</b>，隨時可以關掉、之後再從同一個連結回來繼續。</div>` +
+    SECTIONS.map((s,i)=>sectionHTML(s,i,s.id===openId)).join('') +
+    `<div style="height:8px"></div>`;
+  document.querySelectorAll('textarea').forEach(grow);
+  updateProgress();
+}
+function toggleSec(id){
+  const el = $('sec-'+id);
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('open'));
+  if(!wasOpen){ el.classList.add('open'); window.__open = id;
+    setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}), 60); }
+  else window.__open = null;
+}
+function setF(id, val){
+  DATA[id] = val;
+  if(id === 'name') META.name = val;
+  save();
+  const el = $('sec-'+ (SECTIONS.find(s=>
+    (s.list && id.startsWith(s.list.prefix)) || s.fields.some(f=>f.id===id))||{}).id);
+  if(el){
+    const s = SECTIONS.find(x=>'sec-'+x.id===el.id);
+    const ids=[]; if(s.list) for(let k=1;k<=s.list.n;k++) ids.push(s.list.prefix+k);
+    s.fields.forEach(f=>ids.push(f.id));
+    el.classList.toggle('done', ids.length && ids.every(i=>DATA[i]&&String(DATA[i]).trim()));
+  }
+}
+function grow(t){ t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
+function updateProgress(){
+  const {n,total} = filledCount(DATA);
+  const pct = Math.round(n/total*100);
+  if($('progBar')) $('progBar').style.width = pct+'%';
+  if($('progTxt')) $('progTxt').textContent = `完成 ${n} / ${total} 項（${pct}%）`;
+}
+
+/* ═══════════════ 照片：選擇 → 裁切 ═══════════════ */
+let cropState = null;
+function pickPhoto(fieldId, ratio){
+  const inp = $('filepick');
+  inp.value = '';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => openCropper(rd.result, fieldId, ratio||3/4);
+    rd.readAsDataURL(f);
+  };
+  inp.click();
+}
+function clearPhoto(id){ delete DATA[id]; save(); renderForm(); }
+
+function openCropper(src, fieldId, ratio){
+  const img = new Image();
+  img.onload = () => {
+    const box = document.createElement('div');
+    box.className = 'modal';
+    box.innerHTML = `<div class="cropwrap">
+      <div class="cropstage${ratio===1?' sq':''}"><canvas id="cropCv"></canvas></div>
+      <div class="croptip">用手指拖曳移動，下方滑桿可放大縮小</div>
+      <input type="range" id="cropZoom" min="100" max="300" value="100">
+      <div class="btnrow" style="margin-top:12px">
+        <button class="btn" style="flex:1" onclick="closeCropper()">取消</button>
+        <button class="btn primary" style="flex:2" onclick="applyCrop()">✓ 使用這張</button>
+      </div></div>`;
+    document.body.appendChild(box);
+    const cv = $('cropCv');
+    const W = 600, H = Math.round(600 / ratio);
+    cv.width = W; cv.height = H;
+    const base = Math.max(W/img.width, H/img.height);
+    cropState = { img, cv, ctx:cv.getContext('2d'), W, H, ratio, fieldId,
+                  scale:1, base, x:0, y:0, box };
+    drawCrop();
+    $('cropZoom').oninput = e => { cropState.scale = e.target.value/100; clampCrop(); drawCrop(); };
+    let drag=null;
+    const pt = ev => { const t = ev.touches ? ev.touches[0] : ev;
+      const r = cv.getBoundingClientRect();
+      return { x:(t.clientX-r.left)*(W/r.width), y:(t.clientY-r.top)*(H/r.height) }; };
+    const down = ev => { drag = pt(ev); ev.preventDefault(); };
+    const move = ev => { if(!drag) return; const p = pt(ev);
+      cropState.x += p.x-drag.x; cropState.y += p.y-drag.y; drag=p; clampCrop(); drawCrop(); ev.preventDefault(); };
+    const up = () => drag=null;
+    cv.addEventListener('touchstart',down,{passive:false});
+    cv.addEventListener('touchmove',move,{passive:false});
+    cv.addEventListener('touchend',up);
+    cv.addEventListener('mousedown',down);
+    window.addEventListener('mousemove',move);
+    window.addEventListener('mouseup',up);
+  };
+  img.src = src;
+}
+function clampCrop(){
+  const s = cropState; const sc = s.base*s.scale;
+  const w = s.img.width*sc, h = s.img.height*sc;
+  s.x = Math.min(0, Math.max(s.W-w, s.x));
+  s.y = Math.min(0, Math.max(s.H-h, s.y));
+  if(w < s.W) s.x = (s.W-w)/2;
+  if(h < s.H) s.y = (s.H-h)/2;
+}
+function drawCrop(){
+  const s = cropState; if(!s) return;
+  const sc = s.base*s.scale;
+  s.ctx.fillStyle = '#000'; s.ctx.fillRect(0,0,s.W,s.H);
+  s.ctx.drawImage(s.img, s.x, s.y, s.img.width*sc, s.img.height*sc);
+}
+function closeCropper(){ if(cropState){ cropState.box.remove(); cropState=null; } }
+function applyCrop(){
+  const s = cropState; if(!s) return;
+  DATA[s.fieldId] = s.cv.toDataURL('image/jpeg', 0.86);
+  closeCropper(); save(); renderForm();
+}
+
+/* ═══════════════ 匯出 PDF（用瀏覽器列印）═══════════════ */
+function exportPDF(){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.add('open'));
+  document.querySelectorAll('textarea').forEach(grow);
+  setTimeout(()=>window.print(), 250);
+}
+
+/* ═══════════════ 匯出 PPT（把資料填進原版模板）═══════════════ */
+function tokenValues(d){
+  const t = {};
+  const g = k => (d[k] || '').trim();
+  // 直接對應
+  allFieldIds().forEach(id => { t[id] = g(id); });
+  // 組合欄位（模板裡連標籤一起被 token 取代，這裡補回標籤）
+  t.ch_zh         = '全鑫';          // 分會名（模板原為 XX白金分會）
+  t.ch_en         = 'GOLD CHAPTER';
+  t.cover_name    = g('name');
+  t.cover_ind     = g('industry');
+  t.cover_name_en = g('nameEn');
+  t.cover_ind_en  = g('industryEn');
+  t.s6_rep        = '行業代表：' + g('rep');
+  t.s6_company    = '公司：' + g('company');
+  t.s6_nameline   = g('name') + '\n' + g('nameEn');
+  t.s6_slogan     = g('slogan');
+  t.s6_next       = '下一位：' + g('next');
+  t.s7_slogan     = g('slogan');
+  t.s7_next       = '下一位：' + g('next');
+  t.b_nameline    = g('name') + '　　' + g('industry') + ' 代表';
+  t.b_zodiac      = g('b_zodiac') ? g('b_zodiac') + '座' : '';
+  t.b_editdate    = nowStr() + ' 編修';
+  t.b_prev1y      = g('b_prev1y') ? g('b_prev1y') + '年' : '';
+  t.b_prev2y      = g('b_prev2y') ? g('b_prev2y') + '年' : '';
+  t.b_cury        = g('b_cury')   ? g('b_cury')   + '年' : '';
+  t.p_years       = g('p_years')  ? g('p_years')  + '年' : '';
+  t.gr_center     = g('name') + '\n' + (g('industry') || g('rep'));
+  return t;
+}
+/* 把 {{token}} 換成文字；換行要拆成多個 run 加 <a:br/> */
+function fillXml(xml, vals){
+  return xml.replace(/<a:r>((?:(?!<a:r>)[\s\S])*?)<a:t>([^<]*?)\{\{(\w+)\}\}([^<]*?)<\/a:t>\s*<\/a:r>/g,
+    (m, head, pre, key, post) => {
+      const raw = (vals[key] !== undefined ? vals[key] : '');
+      const rpr = (head.match(/<a:rPr[\s\S]*?(?:\/>|<\/a:rPr>)/) || [''])[0];
+      const lines = String(raw).split('\n');
+      return lines.map((ln, i) => {
+        const txt = (i===0 ? pre : '') + ln + (i===lines.length-1 ? post : '');
+        return (i ? '<a:br>' + rpr + '</a:br>' : '') +
+               '<a:r>' + head + '<a:t>' + esc(txt) + '</a:t></a:r>';
+      }).join('');
+    });
+}
+async function exportPPT(){
+  const btns = document.querySelectorAll('.bottombar .btn');
+  btns.forEach(b=>b.disabled=true);
+  const old = btns[1].textContent; btns[1].textContent = '產生中…';
+  try{
+    if(typeof JSZip === 'undefined') throw new Error('元件尚未載入，請稍候再試');
+    const res = await fetch(TPL);
+    if(!res.ok) throw new Error('讀不到模板檔（' + res.status + '）');
+    const zip = await JSZip.loadAsync(await res.arrayBuffer());
+    const vals = tokenValues(DATA);
+    const names = Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n));
+    for(const n of names){
+      const xml = await zip.file(n).async('string');
+      zip.file(n, fillXml(xml, vals));
+    }
+    const blob = await zip.generateAsync({type:'blob',
+      mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation'});
+    const nm = (DATA.name || '四加一表').replace(/[\\/:*?"<>|]/g,'');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `BNI四加一表_${nm}_${nowStr().replace(/\./g,'')}.pptx`;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+  }catch(e){
+    alert('匯出失敗：' + (e.message || e));
+  }finally{
+    btns.forEach(b=>b.disabled=false); btns[1].textContent = old;
+  }
+}
+
+/* ═══════════════ 導師／領導團隊：總覽 ═══════════════ */
+function renderAdminGate(){
+  $('progWrap').style.display='none';
+  $('bottombar').style.display='none';
+  $('whoName').textContent = '導師 / 領導團隊';
+  $('view').innerHTML = `<div class="card">
+    <div class="nm">四加一表 · 管理</div>
+    <div class="meta" style="margin-bottom:13px">導師與領導團隊可以查看所有新會員的四加一表、產生填寫連結。</div>
+    <input type="password" id="pin" class="linkbox" style="color:#fff;font-size:16px;padding:12px"
+      placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')tryPin()">
+    <button class="btn primary wide" style="margin-top:11px" onclick="tryPin()">進入</button>
+  </div>
+  <div class="empty">新會員請點主辦給你的<b>專屬連結</b>，<br>就會直接進到自己的表單。</div>`;
+}
+function tryPin(){
+  if($('pin').value.trim() === COORD_PIN){
+    ADMIN = true; localStorage.setItem('bio_admin','1'); loadAdmin();
+  } else alert('密碼錯誤');
+}
+function loadAdmin(){
+  $('view').innerHTML = '<div class="empty">載入中…</div>';
+  if(!SHARED){ $('view').innerHTML='<div class="empty">連線失敗，請重新整理。</div>'; return; }
+  firebase.database().ref(NODE).on('value', s=>{ ALL = s.val() || {}; renderAdmin(); });
+  firebase.database().ref(TRACKER+'/newMembers').once('value').then(s=>{
+    window.__tracker = s.val() || []; renderAdmin();
+  }).catch(()=>{});
+}
+function renderAdmin(){
+  if(ALL === null) return;
+  const base = location.origin + location.pathname;
+  const rows = Object.entries(ALL).map(([k,v])=>{
+    const d = v.data || {};
+    const {n,total} = filledCount(d);
+    const pct = Math.round(n/total*100);
+    const cls = pct===100 ? 'ok' : (pct>0 ? 'mid' : 'no');
+    const url = base + '?m=' + k;
+    const upd = v.updatedAt ? new Date(v.updatedAt).toLocaleString('zh-TW',{hour12:false}) : '—';
+    return `<div class="card">
+      <div class="nm">${esc(v.name || d.name || '（未填姓名）')}
+        <span class="pill ${cls}">${pct}%</span></div>
+      <div class="meta">${esc(d.industry||d.rep||'')}　·　最後更新 ${esc(upd)}</div>
+      <input class="linkbox" readonly value="${esc(url)}" onclick="this.select()">
+      <div class="btnrow" style="margin-top:9px">
+        <button class="btn" style="flex:1" onclick="copyTxt(this,'${url}')">複製連結</button>
+        <button class="btn" style="flex:1" onclick="location.href='${url}'">開啟填寫</button>
+      </div></div>`;
+  }).join('');
+  const seed = (window.__tracker||[]).filter(m=>
+    !Object.values(ALL).some(v=>(v.name||'')===m.name));
+  const seedHTML = seed.length ? `<div class="card">
+      <div class="nm" style="font-size:15px">➕ 從追蹤名單建立</div>
+      <div class="meta" style="margin-bottom:10px">點一下就會幫他建立一份空白四加一表並產生專屬連結</div>
+      <div class="btnrow">${seed.map(m=>
+        `<button class="btn" onclick="createFor('${esc(m.name)}')">${esc(m.name)}</button>`).join('')}</div>
+    </div>` : '';
+  $('view').innerHTML =
+    `<div class="note">把每個人的<b>專屬連結</b>私訊給他本人，他點開就能直接填、自動儲存。</div>` +
+    seedHTML +
+    (rows || `<div class="empty">還沒有任何四加一表。<br>可以從上面的追蹤名單建立。</div>`) +
+    `<div class="card"><div class="nm" style="font-size:15px">➕ 手動新增</div>
+      <input type="text" id="newName" class="linkbox" style="color:#fff;font-size:16px;padding:12px;margin-top:9px"
+        placeholder="輸入姓名">
+      <button class="btn wide" style="margin-top:9px" onclick="createFor($('newName').value)">建立</button></div>`;
+}
+function createFor(name){
+  name = (name||'').trim();
+  if(!name){ alert('請輸入姓名'); return; }
+  const k = newKey();
+  firebase.database().ref(NODE+'/'+k).set({
+    name, data:{ name }, createdAt:Date.now(), updatedAt:Date.now(), updatedBy:'導師/幹部'
+  });
+}
+function copyTxt(btn, txt){
+  navigator.clipboard.writeText(txt).then(()=>{
+    const o = btn.textContent; btn.textContent = '已複製 ✓';
+    setTimeout(()=>btn.textContent = o, 1500);
+  });
+}
+
+/* ═══════════════ 啟動 ═══════════════ */
+initSync();
+if(MKEY){
+  $('view').innerHTML = '<div class="empty">載入中…</div>';
+  setTimeout(()=>{ if(!META.createdAt && !Object.keys(DATA).length) renderForm(); }, 2500);
+} else if(ADMIN){
+  loadAdmin();
+} else {
+  renderAdminGate();
+}
+</script>
+</body>
+</html>
