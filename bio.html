@@ -289,7 +289,16 @@ const SECTIONS = [
   ]},
   { id:'grid', title:'產業九宮格', sub:'你周圍的 8 個相關行業', list:{prefix:'gr_', n:8,
       ph:'水電師傅', label:'相關行業'}, fields:[] },
+  // 英文版：欄位是上面所有可翻譯欄位的鏡像（en_<欄位>），不列入完成度計算
+  { id:'en', title:'英文版 English', sub:'一鍵自動翻譯，翻完可以自己改', en:true, fields:[] },
 ];
+
+/* 這些欄位不送翻譯：數字、已有專屬對照表的、或翻了反而不對的（公司名、人名）*/
+const EN_SKIP = new Set(['name','nameEn','industry','industryEn','photo','qrcode',
+  'b_birth','b_zodiac','b_prev1y','b_prev2y','b_cury','p_years','next','company','b_company']);
+const ZODIAC_EN = {水瓶:'Aquarius', 雙魚:'Pisces', 牡羊:'Aries', 金牛:'Taurus', 雙子:'Gemini',
+  巨蟹:'Cancer', 獅子:'Leo', 處女:'Virgo', 天秤:'Libra', 天蠍:'Scorpio',
+  射手:'Sagittarius', 摩羯:'Capricorn'};
 
 
 /* ═══════════════ 中→英 對照表（離線，不打外部 API）═══════════════
@@ -909,7 +918,156 @@ function fieldHTML(f){
   return `<div class="fld ${cls}"><label>${esc(f.label)}${hint}</label>
     <input type="text" data-f="${f.id}" value="${v}" oninput="setF('${f.id}',this.value)" placeholder="${esc(f.ph||'')}"></div>`;
 }
+
+/* ═══════════════ 英文版（自動翻譯）═══════════════
+   網頁沒有後端，長句子只能靠外部翻譯服務。這裡用 MyMemory 的公開 API
+   （免費、支援跨網域、匿名每日有字數上限）。翻完的結果存成 en_<欄位>，
+   使用者可以自己改；機器翻譯只是初稿。 */
+const MM_API = 'https://api.mymemory.translated.net/get';
+
+/* 可翻譯的欄位（依表單順序），跳過數字、人名、公司名與有專屬對照表的欄位 */
+function enFields(){
+  const out = [];
+  SECTIONS.forEach(sec => {
+    if(sec.en) return;
+    if(sec.list) for(let k = 1; k <= sec.list.n; k++){
+      const id = sec.list.prefix + k;
+      if(!EN_SKIP.has(id)) out.push({id, label: `${sec.title}｜${sec.list.label} ${k}`});
+    }
+    sec.fields.forEach(f => {
+      if(f.type === 'photo' || EN_SKIP.has(f.id)) return;
+      out.push({id: f.id, label: `${sec.title}｜${f.label}`});
+    });
+  });
+  return out;
+}
+/* 照標點把一行切成句子。這裡不用「後行斷言」正規式（?<=…）——
+   舊版 Safari / iPad 解析不了，整個檔案會在載入時就掛掉。 */
+function splitSentences(line){
+  const marks = '。！？；!?;';
+  const out = [];
+  let buf = '';
+  for(const ch of line){
+    buf += ch;
+    if(marks.indexOf(ch) >= 0){ out.push(buf); buf = ''; }
+  }
+  if(buf) out.push(buf);
+  return out;
+}
+/* MyMemory 單次有長度上限，先照換行、再照句號切成小段 */
+function chunkText(txt, max){
+  const out = [];
+  String(txt).split('\n').forEach(line => {
+    if(!line.trim()){ out.push(''); return; }
+    let buf = '';
+    splitSentences(line).forEach(sen => {
+      while(sen.length > max){                       // 沒有標點的超長句只好硬切
+        if(buf){ out.push(buf); buf = ''; }
+        out.push(sen.slice(0, max)); sen = sen.slice(max);
+      }
+      if((buf + sen).length > max){ out.push(buf); buf = sen; }
+      else buf += sen;
+    });
+    out.push(buf);
+  });
+  return out;
+}
+async function mmTranslate(text){
+  const lines = chunkText(text, 380);
+  const done = [];
+  for(const part of lines){
+    if(!part.trim()){ done.push(''); continue; }
+    const url = `${MM_API}?langpair=zh-TW|en&q=${encodeURIComponent(part)}`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('翻譯服務回應 ' + r.status);
+    const j = await r.json();
+    const code = Number(j.responseStatus);
+    if(code && code !== 200){
+      const d = String(j.responseDetails || '');
+      if(/ALL AVAILABLE FREE TRANSLATIONS|QUOTA|LIMIT/i.test(d))
+        throw new Error('今天的免費翻譯額度用完了，請明天再試（已翻好的會保留）。');
+      throw new Error(d || ('翻譯服務回應 ' + code));
+    }
+    let t = (j.responseData && j.responseData.translatedText) || '';
+    if(/^(MYMEMORY WARNING|PLEASE SELECT)/i.test(t)) throw new Error(t);
+    done.push(t);
+  }
+  // chunkText 是照換行切的，原本幾行就還原幾行
+  const res = [];
+  let idx = 0;
+  String(text).split('\n').forEach(line => {
+    const n = line.trim() ? chunkText(line, 380).length : 1;
+    res.push(done.slice(idx, idx + n).join(' ').trim());
+    idx += n;
+  });
+  return res.join('\n');
+}
+let enBusy = false;
+async function translateAll(force){
+  if(enBusy) return;
+  const list = enFields().filter(f => String(DATA[f.id] || '').trim())
+                         .filter(f => force || !String(DATA['en_' + f.id] || '').trim());
+  if(!list.length){
+    alert(force ? '中文欄位還沒填，沒有東西可以翻譯。' : '已經都翻好了。要重新翻請按「全部重翻」。');
+    return;
+  }
+  enBusy = true;
+  const bar = $('enStatus');
+  try{
+    for(let i = 0; i < list.length; i++){
+      if(bar) bar.textContent = `翻譯中… ${i + 1} / ${list.length}`;
+      DATA['en_' + list[i].id] = await mmTranslate(DATA[list[i].id]);
+      save();
+    }
+    if(bar) bar.textContent = `翻好了，共 ${list.length} 欄。請看一下有沒有要修改的。`;
+  }catch(e){
+    alert('翻譯中斷：' + (e.message || e) + '\n\n已經翻好的都保留了，可以稍後再按一次繼續。');
+    if(bar) bar.textContent = '翻譯中斷，已翻好的都保留了。';
+  }finally{
+    enBusy = false;
+    renderForm();
+  }
+}
+function enSectionHTML(){
+  const list = enFields();
+  const filled = list.filter(f => String(DATA['en_' + f.id] || '').trim()).length;
+  const zh = list.filter(f => String(DATA[f.id] || '').trim()).length;
+  let body = `<div class="note" style="margin:0 0 12px">
+      按下面的按鈕會把中文內容自動翻成英文（機器翻譯，<b>翻完請自己看過</b>）。
+      姓名走拼音、產業走對照表、生日與年資是數字，都不會送出去翻譯。
+    </div>
+    <div class="btnrow" style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn primary" onclick="translateAll(false)">🌐 自動翻譯（${zh - filled} 欄未翻）</button>
+      <button class="btn" onclick="if(confirm('會蓋掉你改過的英文，確定嗎？'))translateAll(true)">全部重翻</button>
+    </div>
+    <div id="enStatus" class="meta" style="margin-bottom:12px"></div>
+    <div class="btnrow" style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn" onclick="openSlides('en')">📄 預覽英文版 / PDF</button>
+      <button class="btn" onclick="exportPPT('en')">📊 匯出英文版 PPT</button>
+    </div>`;
+  list.forEach(f => {
+    const zhv = String(DATA[f.id] || '').trim();
+    if(!zhv) return;
+    body += `<div class="fld"><label>${esc(f.label)}</label>
+      <div class="meta" style="margin:2px 0 5px;white-space:pre-wrap">${esc(zhv)}</div>
+      <textarea rows="2" data-f="en_${f.id}" oninput="setF('en_${f.id}',this.value);grow(this)"
+        placeholder="英文">${esc(DATA['en_' + f.id] || '')}</textarea></div>`;
+  });
+  return body;
+}
+
 function sectionHTML(s, i, open){
+  if(s.en){
+    const n = enFields().filter(f => String(DATA['en_' + f.id] || '').trim()).length;
+    return `<section class="sec ${open?'open':''} ${n?'done':''}" id="sec-${s.id}">
+      <div class="sechead" onclick="toggleSec('${s.id}')">
+        <div class="secno">${n ? '✓' : '🌐'}</div>
+        <div class="sectitle"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></div>
+        <div class="caret">▶</div>
+      </div>
+      <div class="secbody">${enSectionHTML()}</div>
+    </section>`;
+  }
   const ids = [];
   if(s.list) for(let k=1;k<=s.list.n;k++) ids.push(s.list.prefix+k);
   s.fields.forEach(f=>ids.push(f.id));
@@ -952,6 +1110,8 @@ function toggleSec(id){
   const wasOpen = el.classList.contains('open');
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('open'));
   if(!wasOpen){ el.classList.add('open'); window.__open = id;
+    // 收合時量不到高度，展開後才把多行輸入框撐開
+    el.querySelectorAll('textarea').forEach(grow);
     setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}), 60); }
   else window.__open = null;
 }
@@ -1133,8 +1293,8 @@ function runsHTML(para, vals){
     ? `<span style="font-size:${fs(px(maxsz))}">${esc(para.bu)}\u2003</span>` : '';
   return `<div style="${st.join(';')}">` + (bullet + inner || '&nbsp;') + `</div>`;
 }
-function renderSlideView(){
-  const S = SLIDES, vals = tokenValues(DATA);
+function renderSlideView(lang){
+  const S = SLIDES, vals = tokenValues(DATA, lang);
   const pct = (v, tot) => (v / tot * 100).toFixed(3) + '%';
   const byslide = {};
   S.boxes.forEach(b => (byslide[b.slide] = byslide[b.slide] || []).push(b));
@@ -1194,14 +1354,14 @@ function fitSlides(){
   });
 }
 window.addEventListener('resize', fitSlides);
-async function openSlides(){
+async function openSlides(lang){
   const btns = document.querySelectorAll('.bottombar .btn');
   btns.forEach(b => b.disabled = true);
   const old = btns[0].textContent; btns[0].textContent = '準備中…';
   try{
     await loadSlides();
     $('slideview').style.display = 'block';
-    renderSlideView();
+    renderSlideView(lang);
     $('slideview').scrollTop = 0;
   }catch(e){ alert('無法開啟投影片檢視：' + (e.message || e)); }
   finally{ btns.forEach(b => b.disabled = false); btns[0].textContent = old; }
@@ -1241,33 +1401,49 @@ async function injectPics(zip, S){
 function exportPDF(){ openSlides(); }
 
 /* ═══════════════ 匯出 PPT（把資料填進原版模板）═══════════════ */
-function tokenValues(d){
+function tokenValues(d, lang){
+  const en = lang === 'en';
   const t = {};
-  const g = k => (d[k] || '').trim();
+  // 英文版：姓名走拼音欄、產業走產業英文欄，其餘取 en_<欄位>，沒翻的退回中文
+  const ALIAS = {name:'nameEn', industry:'industryEn'};
+  const g = k => {
+    if(en){
+      if(ALIAS[k] && String(d[ALIAS[k]] || '').trim()) return String(d[ALIAS[k]]).trim();
+      // 行業代表通常就是產業名稱（連動填寫帶的），這時直接沿用產業英文名
+      if(k === 'rep' && String(d.rep || '').trim() === String(d.industry || '').trim()
+         && String(d.industryEn || '').trim()) return String(d.industryEn).trim();
+      if(String(d['en_' + k] || '').trim()) return String(d['en_' + k]).trim();
+    }
+    return String(d[k] || '').trim();
+  };
+  const L = (zh, eng) => (en ? eng : zh);
   // 直接對應
   allFieldIds().forEach(id => { t[id] = g(id); });
   // 組合欄位（模板裡連標籤一起被 token 取代，這裡補回標籤）
   t.ch_zh         = '全鑫';          // 分會名（模板原為 XX白金分會）
   t.ch_en         = 'GOLD CHAPTER';
-  t.cover_name    = g('name');
-  t.cover_ind     = g('industry');
-  t.cover_name_en = g('nameEn');
-  t.cover_ind_en  = g('industryEn');
-  t.s6_rep        = '行業代表：' + g('rep');
-  t.s6_company    = '公司：' + g('company');
-  t.s6_name       = g('name');
-  t.s6_nameEn     = g('nameEn');
+  // 封面與 SLOGAN 頁本來就是「中文＋英文」並排的設計，兩種語言都固定顯示
+  const raw = k => String(d[k] || '').trim();
+  t.cover_name    = raw('name');
+  t.cover_ind     = raw('industry');
+  t.cover_name_en = raw('nameEn');
+  t.cover_ind_en  = raw('industryEn');
+  t.s6_rep        = L('行業代表：', 'Industry Rep.: ') + g('rep');
+  t.s6_company    = L('公司：', 'Company: ') + g('company');
+  t.s6_name       = raw('name');
+  t.s6_nameEn     = raw('nameEn');
   t.s6_slogan     = g('slogan');
-  t.s6_next       = '下一位：' + g('next');
+  t.s6_next       = L('下一位：', 'Next: ') + g('next');
   t.s7_slogan     = g('slogan');
-  t.s7_next       = '下一位：' + g('next');
-  t.b_nameline    = g('name') + '　　' + g('industry') + ' 代表';
-  t.b_zodiac      = g('b_zodiac') ? g('b_zodiac') + '座' : '';
-  t.b_editdate    = nowStr() + ' 編修';
-  t.b_prev1y      = g('b_prev1y') ? g('b_prev1y') + '年' : '';
-  t.b_prev2y      = g('b_prev2y') ? g('b_prev2y') + '年' : '';
-  t.b_cury        = g('b_cury')   ? g('b_cury')   + '年' : '';
-  t.p_years       = g('p_years')  ? g('p_years')  + '年' : '';
+  t.s7_next       = L('下一位：', 'Next: ') + g('next');
+  t.b_nameline    = g('name') + '　　' + g('industry') + L(' 代表', ' Rep.');
+  t.b_zodiac      = d.b_zodiac ? (en ? (ZODIAC_EN[String(d.b_zodiac).replace('座','')] || String(d.b_zodiac))
+                                            : String(d.b_zodiac).trim() + '座') : '';
+  t.b_editdate    = nowStr() + L(' 編修', ' revised');
+  t.b_prev1y      = g('b_prev1y') ? g('b_prev1y') + L('年', ' yrs') : '';
+  t.b_prev2y      = g('b_prev2y') ? g('b_prev2y') + L('年', ' yrs') : '';
+  t.b_cury        = g('b_cury')   ? g('b_cury')   + L('年', ' yrs') : '';
+  t.p_years       = g('p_years')  ? g('p_years')  + L('年', ' yrs') : '';
   t.gr_center     = g('name') + '\n' + (g('industry') || g('rep'));
   return t;
 }
@@ -1365,7 +1541,7 @@ function autofitXml(xml, vals, tokBox){
   });
 }
 
-async function exportPPT(){
+async function exportPPT(lang){
   const btns = document.querySelectorAll('.bottombar .btn');
   btns.forEach(b=>b.disabled=true);
   const old = btns[1].textContent; btns[1].textContent = '產生中…';
@@ -1374,7 +1550,7 @@ async function exportPPT(){
     const res = await fetch(TPL);
     if(!res.ok) throw new Error('讀不到模板檔（' + res.status + '）');
     const zip = await JSZip.loadAsync(await res.arrayBuffer());
-    const vals = tokenValues(DATA);
+    const vals = tokenValues(DATA, lang);
     const S = await loadSlides();
     const tokBox = tokenBoxes(S);
     const names = Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n));
@@ -1385,7 +1561,8 @@ async function exportPPT(){
     await injectPics(zip, S);
     const blob = await zip.generateAsync({type:'blob',
       mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation'});
-    const nm = (DATA.name || '四加一表').replace(/[\\/:*?"<>|]/g,'');
+    const nm = (DATA.name || '四加一表').replace(/[\\/:*?"<>|]/g,'')
+                 + (lang === 'en' ? '_EN' : '');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `BNI四加一表_${nm}_${nowStr().replace(/\./g,'')}.pptx`;
