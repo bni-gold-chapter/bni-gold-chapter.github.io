@@ -9,7 +9,16 @@ import re, sys, zipfile, shutil
 # ── 每個欄位：(投影片, 種類, 定位, token) ───────────────────────────────
 # cell(列, 格)：格的索引含被合併的佔位格，與 PowerPoint 的欄位置一致
 # para 指定段落時＝在該段落後面接上 token（保留原本的提示字，如「短期目標：」）
-CELL, SHAPE, RUN = 'cell', 'shape', 'run'
+CELL, SHAPE, RUN, RUNS, ADD = 'cell', 'shape', 'run', 'runs', 'add'
+
+# 版面（slideLayout）頁尾的分會名是原廠佔位字，母片層不會被 token 取代，
+# 直接在這裡換成本分會名稱。
+CHAPTER = [('XX', '全鑫白金'), ('XXXX CHAPTER', 'GOLD CHAPTER')]
+# 「全鑫白金分會」比原本的「XX 分會」長，頁尾那個小框要放寬，不然會折行掉出版面
+CHAPTER_BOX = 2100000
+
+# slide7（30 秒自我介紹第二頁）原檔整頁空白，補一個可填字的文字框
+S7_BODY = dict(x=766765, y=800100, w=10658470, h=5200000, sz=2000)
 EDITS = [
     # ── slide1 封面 ──（分會名是混合字體，只換單一 run 保留樣式）
     (1, RUN, (0, 0), 'ch_zh'), (1, RUN, (0, 2), 'ch_en'),
@@ -17,9 +26,14 @@ EDITS = [
     (1, SHAPE, 3, 'cover_name_en'), (1, SHAPE, 4, 'cover_ind_en'),
     # ── slide6 SLOGAN 1 ──
     (6, SHAPE, 0, 's6_rep'), (6, SHAPE, 1, 's6_company'),
-    (6, SHAPE, 2, 's6_nameline'), (6, SHAPE, 3, 's6_slogan'), (6, SHAPE, 4, 's6_next'),
-    # ── slide7 SLOGAN 2 ──
+    # 姓名與英文名在原版是「同一行、兩種字體」，各換一個 run 才不會擠掉版面
+    (6, RUN, (2, 0), 's6_name'), (6, RUNS, (2, 1), 's6_nameEn'),
+    (6, SHAPE, 3, 's6_slogan'), (6, SHAPE, 4, 's6_next'),
+    (6, RUN, (5, 0), 's6_need'),                                    # 需求引薦
+    *[(6, RUN, (6, i), f's6_serv{i+1}') for i in range(3)],         # 服務項目三點
+    # ── slide7 SLOGAN 2（原檔空白頁，加一個自我介紹內容框）──
     (7, SHAPE, 0, 's7_slogan'), (7, SHAPE, 1, 's7_next'),
+    (7, ADD, S7_BODY, 's7_body'),
     # ── slide9 會員資料表1 商業資訊 ──
     (9, CELL, (0, 2), 'b_nameline'), (9, CELL, (0, 4), 'b_birth'),
     (9, CELL, (0, 7), 'b_zodiac'), (9, CELL, (0, 10), 'b_editdate'),
@@ -57,6 +71,10 @@ EDITS = [
     (22, CELL, (1, 0), 'gr_4'), (22, CELL, (1, 1), 'gr_center'), (22, CELL, (1, 2), 'gr_5'),
     (22, CELL, (2, 0), 'gr_6'), (22, CELL, (2, 1), 'gr_7'), (22, CELL, (2, 2), 'gr_8'),
 ]
+
+# 原版有些框是照範例字數做的，實務上會寫比較多，直接把框調整成合理高度
+# （投影片, 文字框序號, 新的高度 EMU）
+RESIZE = [(6, 5, 1100000)]      # slide6「需求引薦」：一行 → 約三行
 
 TOKEN = '{{%s}}'
 RE_TC = re.compile(r'<a:tc(?:\s[^>]*)?>.*?</a:tc>', re.S)
@@ -143,14 +161,63 @@ def edit_shape(xml, idx, token):
 
 
 def edit_run(xml, shape_idx, run_idx, token):
-    """只把某個文字框的第 N 個 run 換成 token，其餘樣式與 run 全部保留。"""
+    """只把某個文字框的第 N 個 run 換成 token，其餘樣式與 run 全部保留。
+    原文若有前後空白（例如「王小明 」後面接英文名）要留著，不然兩段會黏在一起。"""
     sps = RE_SP.findall(xml)
     withtext = [sp for sp in sps if re.search(r'<a:t>', sp)]
     sp = withtext[shape_idx]
     spans = [m.span(1) for m in re.finditer(r'<a:t>(.*?)</a:t>', sp, re.S)]
     a, b = spans[run_idx]
-    newsp = sp[:a] + TOKEN % token + sp[b:]
+    orig = sp[a:b]
+    pre = post = ''
+    if orig.strip():                       # 整段都是空白就直接換掉
+        pre = orig[:len(orig) - len(orig.lstrip())]
+        post = orig[len(orig.rstrip()):]
+    newsp = sp[:a] + pre + TOKEN % token + post + sp[b:]
     return xml.replace(sp, newsp, 1)
+
+
+def edit_runs(xml, shape_idx, start, token):
+    """token 放進第 start 個 run，後面的 run 全部清空。
+    原檔常把一句英文拆成好幾個 run（WANG / XIAO / MING），只換第一個會留下殘字。"""
+    sps = RE_SP.findall(xml)
+    withtext = [sp for sp in sps if re.search(r'<a:t>', sp)]
+    sp = withtext[shape_idx]
+    spans = [m.span(1) for m in re.finditer(r'<a:t>(.*?)</a:t>', sp, re.S)]
+    new = sp
+    for i in range(len(spans) - 1, start - 1, -1):      # 由後往前改，位置才不會跑掉
+        a, b = spans[i]
+        new = new[:a] + (TOKEN % token if i == start else '') + new[b:]
+    return xml.replace(sp, new, 1)
+
+
+def add_box(xml, g, token):
+    """在投影片上補一個新的文字框（原檔沒有、但需要讓會員填字的地方）。"""
+    sp = (
+        f'<p:sp><p:nvSpPr><p:cNvPr id="9200" name="{token}"/>'
+        '<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>'
+        f'<p:spPr><a:xfrm><a:off x="{g["x"]}" y="{g["y"]}"/>'
+        f'<a:ext cx="{g["w"]}" cy="{g["h"]}"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>'
+        '<p:txBody><a:bodyPr wrap="square" lIns="91440" tIns="45720" rIns="91440"'
+        ' bIns="45720" anchor="t"><a:normAutofit/></a:bodyPr><a:lstStyle/>'
+        f'<a:p><a:pPr algn="l"/><a:r><a:rPr lang="zh-TW" altLang="en-US"'
+        f' sz="{g["sz"]}" b="1" dirty="0">'
+        '<a:latin typeface="Microsoft JhengHei" panose="020B0604030504040204"'
+        ' pitchFamily="34" charset="-120"/>'
+        '<a:ea typeface="Microsoft JhengHei" panose="020B0604030504040204"'
+        ' pitchFamily="34" charset="-120"/></a:rPr>'
+        f'<a:t>{TOKEN % token}</a:t></a:r></a:p></p:txBody></p:sp>'
+    )
+    return xml.replace('</p:spTree>', sp + '</p:spTree>', 1)
+
+
+def resize_shape(xml, idx, h):
+    sps = RE_SP.findall(xml)
+    withtext = [sp for sp in sps if re.search(r'<a:t>', sp)]
+    sp = withtext[idx]
+    new = re.sub(r'(<a:ext cx="\d+" cy=")\d+(")', r'\g<1>%d\g<2>' % h, sp, count=1)
+    return xml.replace(sp, new, 1)
 
 
 def main(src, out):
@@ -162,7 +229,11 @@ def main(src, out):
         if name not in slides:
             slides[name] = zin.read(name).decode('utf8')
         try:
-            if kind == RUN:
+            if kind == ADD:
+                slides[name] = add_box(slides[name], loc, token)
+            elif kind == RUNS:
+                slides[name] = edit_runs(slides[name], loc[0], loc[1], token)
+            elif kind == RUN:
                 slides[name] = edit_run(slides[name], loc[0], loc[1], token)
             elif kind == CELL:
                 row, cell = loc[0], loc[1]
@@ -172,6 +243,31 @@ def main(src, out):
                 slides[name] = edit_shape(slides[name], loc, token)
         except Exception as e:
             print(f'  !! slide{slide} {loc} {token}: {e}')
+    for slide, idx, h in RESIZE:
+        name = f'ppt/slides/slide{slide}.xml'
+        if name not in slides:
+            slides[name] = zin.read(name).decode('utf8')
+        slides[name] = resize_shape(slides[name], idx, h)
+
+    # 版面（母片層）頁尾的「XX 分會 / XXXX CHAPTER」換成本分會名
+    layouts = 0
+    for n in zin.namelist():
+        if not re.match(r'ppt/slideLayouts/slideLayout\d+\.xml$', n):
+            continue
+        x = zin.read(n).decode('utf8')
+        def fix_footer(sp):
+            """只動「XX 分會 / XXXX CHAPTER」那一個文字框：換字，並加寬到放得下。"""
+            if '<a:t>XX</a:t>' not in sp:
+                return sp
+            for a, b in CHAPTER:
+                sp = sp.replace(f'<a:t>{a}</a:t>', f'<a:t>{b}</a:t>')
+            return re.sub(r'(<a:ext cx=")\d+(")', r'\g<1>%d\g<2>' % CHAPTER_BOX, sp, count=1)
+        new = RE_SP.sub(lambda m: fix_footer(m.group(0)), x)
+        if new != x:
+            slides[n] = new
+            layouts += 1
+    print(f'　版面頁尾分會名已更新：{layouts} 個')
+
     # 重寫 zip
     zout = zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED)
     for it in zin.infolist():
