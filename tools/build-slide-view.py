@@ -9,7 +9,7 @@
 用法：python3 tools/build-slide-view.py bio-template.pptx slides/
 需要 libreoffice + poppler-utils（pdftoppm）。
 """
-import json, os, re, shutil, subprocess, sys, zipfile
+import html, json, os, re, shutil, subprocess, sys, zipfile
 
 EMU_W, EMU_H = 12192000, 6858000          # 13.333 x 7.5 吋
 
@@ -34,11 +34,23 @@ def xfrm(xml):
 
 
 def para_info(p):
-    """一個段落 → {align, runs:[{t, sz, b, color}]}"""
-    align = (re.search(r'algn="(\w+)"', p) or [None, 'l'])[1] if 'algn="' in p else 'l'
+    """一個段落 → {a:對齊, ml:縮排, ind:首行, bu:項目符號, ls:行距%, runs:[…]}"""
+    ppr = (re.search(r'<a:pPr[^>]*(?:/>|>)', p) or [''])[0]
+    align = (re.search(r'algn="(\w+)"', ppr) or [None, 'l'])[1]
+    marL = int((re.search(r'marL="(-?\d+)"', ppr) or [0, 0])[1])
+    indent = int((re.search(r'indent="(-?\d+)"', ppr) or [0, 0])[1])
+    # 項目符號：<a:buChar char="•"/>；<a:buNone/> 表示這段沒有符號
+    bu = ''
+    if '<a:buNone/>' not in p:
+        m = re.search(r'<a:buChar[^>]*char="([^"]*)"', p)
+        if m:
+            bu = html.unescape(m.group(1))
+    lnspc = re.search(r'<a:lnSpc><a:spcPct val="(\d+)"/></a:lnSpc>', p)
+    ls = int(lnspc.group(1)) / 100000 if lnspc else 0
+    bef = re.search(r'<a:spcBef><a:spcPts val="(\d+)"/></a:spcBef>', p)
     runs = []
     for r in re.findall(r'<a:r>.*?</a:r>', p, re.S):
-        t = ''.join(re.findall(r'<a:t>(.*?)</a:t>', r, re.S))
+        t = html.unescape(''.join(re.findall(r'<a:t>(.*?)</a:t>', r, re.S)))
         if t == '':
             continue
         rpr = (re.search(r'<a:rPr[\s\S]*?(?:/>|</a:rPr>)', r) or [''])[0]
@@ -46,7 +58,13 @@ def para_info(p):
         b = 'b="1"' in rpr
         col = (re.search(r'<a:srgbClr val="([0-9A-Fa-f]{6})"', rpr) or [None, None])[1]
         runs.append({'t': t, 'sz': sz, 'b': b, 'c': col})
-    return {'a': align, 'r': runs}
+    out = {'a': align, 'r': runs}
+    if marL:   out['ml'] = marL
+    if indent: out['ind'] = indent
+    if bu:     out['bu'] = bu
+    if ls:     out['ls'] = round(ls, 3)
+    if bef:    out['sb'] = int(bef.group(1))
+    return out
 
 
 def body_paras(body):
@@ -56,6 +74,16 @@ def body_paras(body):
 def anchor_of(body):
     m = re.search(r'<a:bodyPr[^>]*anchor="(\w+)"', body)
     return m.group(1) if m else 't'
+
+
+# OOXML 的預設內縮（文字框與表格儲存格都是這組數字）
+DEF_INS = (91440, 45720, 91440, 45720)
+
+
+def insets(tag, names=('lIns', 'tIns', 'rIns', 'bIns')):
+    """從 <a:bodyPr> / <a:tcPr> 取上下左右內縮，沒寫的用預設值。"""
+    return [int((re.search(n + r'="(-?\d+)"', tag) or [0, d])[1])
+            for n, d in zip(names, DEF_INS)]
 
 
 def collect(xml, sidx):
@@ -70,8 +98,9 @@ def collect(xml, sidx):
         pos = xfrm(sp)
         if not body or not pos:
             continue
+        bpr = (re.search(r'<a:bodyPr[^>]*(?:/>|>)', body) or [''])[0]
         boxes.append({'slide': sidx, 'x': pos[0], 'y': pos[1], 'w': pos[2], 'h': pos[3],
-                      'anchor': anchor_of(body), 'p': body_paras(body)})
+                      'anchor': anchor_of(body), 'ins': insets(bpr), 'p': body_paras(body)})
         blanks.append(sp)
 
     # ── 表格 ──
@@ -100,10 +129,11 @@ def collect(xml, sidx):
                 w = sum(cols[ci:ci + gs])
                 h = sum(heights[ri:ri + rs])
                 # 表格的垂直對齊放在 <a:tcPr anchor="...">，不是 bodyPr
-                tcpr = re.search(r'<a:tcPr[^>]*anchor="(\w+)"', tc)
-                anc = tcpr.group(1) if tcpr else anchor_of(body)
-                boxes.append({'slide': sidx, 'x': x, 'y': y, 'w': w, 'h': h,
-                              'anchor': anc, 'p': body_paras(body)})
+                tcpr = (re.search(r'<a:tcPr[^>]*(?:/>|>)', tc) or [''])[0]
+                anc = (re.search(r'anchor="(\w+)"', tcpr) or [None, None])[1] or anchor_of(body)
+                boxes.append({'slide': sidx, 'x': x, 'y': y, 'w': w, 'h': h, 'anchor': anc,
+                              'ins': insets(tcpr, ('marL', 'marT', 'marR', 'marB')),
+                              'p': body_paras(body)})
                 blanks.append(tc)
     return boxes, blanks
 
