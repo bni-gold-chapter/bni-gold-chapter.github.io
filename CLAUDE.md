@@ -25,6 +25,8 @@
   - ⚠️ **改 `fillXml` 要小心 `<a:rPr>` 的擷取**：`<a:rPr>` 底下常有 `<a:latin .../>` 這類子元素，用非貪婪的 `/>` 去比對會切出沒有結尾的標籤，接進 `<a:br>` 後整份 XML 就壞了。**LibreOffice 會自動修復所以看起來正常，PowerPoint 會整頁內容消失**。改完一定要用嚴格的 XML parser 驗證（`xml.dom.minidom.parseString`），不能只看 LibreOffice 的渲染結果。
   - **姓名自動拼音**：`PY_GROUPS` 是 CJK 基本區 20924 字的威妥瑪對照表，由 `tools/build-roman-table.py` 產生（需 `pip install pypinyin`）。個別字要改（破音字、姓氏讀音、護照慣用寫法）請寫進 `SURNAME_TXT` / `PINYIN_TXT`，那兩張表會覆蓋全字表。
   - **連動填寫**：`DERIVE` 定義「填了 A 就順手補 B」（生日→星座、姓名→英文名、產業→行業代表/英文名…），只在 B 還空著時填，且直接改該格 DOM，不整頁重畫（會把游標踢掉）。
+  - **英文版**：表單最後一區「英文版 English」按一下自動翻譯，結果存成 `en_<欄位>`，可手動修改；另有「預覽英文版 PDF／匯出英文版 PPT」。翻譯走 **MyMemory 公開 API**（`api.mymemory.translated.net`，免費、支援 CORS、匿名每日有字數上限，額度用完會跳提示）。`EN_SKIP` 列的欄位不外送（姓名、公司名、生日、星座、各種年資），姓名走拼音表、產業走產業對照表、星座走 `ZODIAC_EN`。封面與 SLOGAN 頁本來就是中英並排的設計，兩種語言固定都顯示。**表格的欄位名稱（公司名稱、職業…）是模板設計的一部分，維持中文**。
+  - ⚠️ **不要用「後行斷言」正規式（`(?<=…)`）**：舊版 Safari / iPad 在載入時就會拋 SyntaxError，整個檔案掛掉。切句子請用 `splitSentences()` 那種逐字掃描的寫法。
   - **匯出 PDF**：`slides/` 內是 23 張純設計背景圖 + `slides.json`（每個填寫方框的座標／字級／對齊）。網頁疊上文字排出 1280×720px 的橫式投影片，列印即 PDF（`@page size:13.333in 7.5in`）。這兩樣由 `tools/build-slide-view.py` 從模板產生，**模板改了就要重跑**。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT（已存成 `tools/bio-source.pptx`）產生：在表格空格與文字框注入 token、補上原檔沒有的欄位、把版面頁尾的「XX 分會」換成分會名。**原始 PPT 若改版，換掉 `tools/bio-source.pptx` 再重跑此腳本即可**，不要手改模板。改完模板要接著重跑 `build-slide-view.py`。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
