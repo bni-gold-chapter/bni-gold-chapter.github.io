@@ -7,7 +7,13 @@
 網頁拿這兩樣就能排出跟原版 PPT 一樣的橫式版面，列印即為 PDF。
 
 用法：python3 tools/build-slide-view.py bio-template.pptx slides/
-需要 libreoffice + poppler-utils（pdftoppm）。
+方框位置**不能只靠 <a:tr h> 算**：那是「最小列高」，實際渲染時 LibreOffice /
+PowerPoint 會為了塞下內容把列撐高（GAINS 左欄那種長說明文字就會撐高），算出來
+的座標會跟背景圖的框線對不起來，越後面的列差越多。所以這裡多渲染一張「探測
+圖」：把每個要填字的儲存格塗成一個獨一無二的顏色，再從圖上把那塊顏色的實際
+位置量回來。
+
+需要 libreoffice + poppler-utils（pdftoppm）與 Pillow。
 """
 import html, json, os, re, shutil, subprocess, sys, zipfile
 
@@ -86,9 +92,9 @@ def insets(tag, names=('lIns', 'tIns', 'rIns', 'bIns')):
             for n, d in zip(names, DEF_INS)]
 
 
-def collect(xml, sidx):
+def collect(xml, sidx, probe_from=0):
     """回傳這張投影片上所有「含 token 的方框」，以及要在背景中清空的區塊。"""
-    boxes, blanks = [], []
+    boxes, blanks, cells = [], [], []
 
     # ── 文字框 ──
     for sp in RE_SP.findall(xml):
@@ -133,9 +139,29 @@ def collect(xml, sidx):
                 anc = (re.search(r'anchor="(\w+)"', tcpr) or [None, None])[1] or anchor_of(body)
                 boxes.append({'slide': sidx, 'x': x, 'y': y, 'w': w, 'h': h, 'anchor': anc,
                               'ins': insets(tcpr, ('marL', 'marT', 'marR', 'marB')),
-                              'p': body_paras(body)})
+                              'p': body_paras(body),
+                              '_probe': probe_color(probe_from + len(cells))})
                 blanks.append(tc)
-    return boxes, blanks
+                cells.append(tc)
+    return boxes, blanks, cells
+
+
+def probe_color(i):
+    """給每個要填字的儲存格一個獨一無二的顏色。用偏藍的色系，
+    才不會跟版面本來就有的黑／白／灰／BNI 紅搞混。"""
+    return '%02X%02XFE' % (8 + (i % 30) * 8, 8 + ((i // 30) % 30) * 8)
+
+
+def paint(chunk, color):
+    """把儲存格塗成指定顏色（<a:tcPr> 的填色要放在框線之後）。"""
+    fill = f'<a:solidFill><a:srgbClr val="{color}"/></a:solidFill>'
+    m = re.search(r'<a:tcPr(\s[^>]*)?/>', chunk)
+    if m:
+        return chunk.replace(m.group(0), f'<a:tcPr{m.group(1) or ""}>{fill}</a:tcPr>', 1)
+    m = re.search(r'<a:tcPr(?:\s[^>]*)?>.*?</a:tcPr>', chunk, re.S)
+    if m:
+        return chunk.replace(m.group(0), m.group(0).replace('</a:tcPr>', fill + '</a:tcPr>'), 1)
+    return chunk.replace('</a:tc>', f'<a:tcPr>{fill}</a:tcPr></a:tc>', 1)
 
 
 def blank_out(xml, blanks):
@@ -146,43 +172,112 @@ def blank_out(xml, blanks):
     return xml
 
 
+def render(pptx, outdir, prefix, dpi, profile):
+    """pptx → pdf → png，回傳依頁碼排好的檔名清單。"""
+    subprocess.run(['soffice', '--headless', f'-env:UserInstallation=file://{profile}',
+                    '--convert-to', 'pdf', pptx, '--outdir', outdir],
+                   check=True, capture_output=True, timeout=900)
+    pdf = os.path.splitext(pptx)[0] + '.pdf'
+    subprocess.run(['pdftoppm', '-png', '-r', str(dpi), pdf, os.path.join(outdir, prefix)],
+                   check=True, capture_output=True, timeout=900)
+    os.remove(pdf)
+    out = {}
+    for f in os.listdir(outdir):
+        m = re.match(re.escape(prefix) + r'-0*(\d+)\.png$', f)
+        if m:
+            out[int(m.group(1))] = os.path.join(outdir, f)
+    return out
+
+
+def measure(pngs, boxes):
+    """從探測圖量出每個儲存格實際的位置，換算回 EMU 覆蓋原本用列高算的座標。"""
+    from PIL import Image
+    want = {}
+    for b in boxes:
+        if b.get('_probe'):
+            want.setdefault(b['slide'], {})[b['_probe']] = b
+    fixed = 0
+    for sidx, by_color in want.items():
+        if sidx not in pngs:
+            continue
+        im = Image.open(pngs[sidx]).convert('RGB')
+        W, H = im.size
+        px = im.load()
+        found = {}
+        for y in range(H):
+            for x in range(W):
+                r, g, bl = px[x, y]
+                if abs(bl - 0xFE) > 2:
+                    continue
+                key = '%02X%02XFE' % (r, g)
+                if key not in by_color:
+                    continue
+                cur = found.get(key)
+                found[key] = (x, y, x, y) if not cur else \
+                    (min(cur[0], x), min(cur[1], y), max(cur[2], x), max(cur[3], y))
+        for key, (x0, y0, x1, y1) in found.items():
+            b = by_color[key]
+            b['x'] = round(x0 / W * EMU_W)
+            b['y'] = round(y0 / H * EMU_H)
+            b['w'] = round((x1 - x0 + 1) / W * EMU_W)
+            b['h'] = round((y1 - y0 + 1) / H * EMU_H)
+            fixed += 1
+    for b in boxes:
+        b.pop('_probe', None)
+    return fixed
+
+
 def main(tpl, outdir):
     os.makedirs(outdir, exist_ok=True)
     zin = zipfile.ZipFile(tpl)
     names = sorted([n for n in zin.namelist() if re.match(r'ppt/slides/slide\d+\.xml$', n)],
                    key=lambda n: int(re.findall(r'\d+', n)[0]))
-    all_boxes, cleaned = [], {}
+    all_boxes, cleaned, probed = [], {}, {}
     for n in names:
         sidx = int(re.findall(r'\d+', n)[0])
         xml = zin.read(n).decode('utf8')
-        boxes, blanks = collect(xml, sidx)
+        boxes, blanks, cells = collect(xml, sidx)
         all_boxes += boxes
-        cleaned[n] = blank_out(xml, blanks)
+        clean = blank_out(xml, blanks)
+        cleaned[n] = clean
+        # 探測用：內容跟背景圖完全一樣（一樣清空文字），只是把儲存格塗上顏色，
+        # 這樣兩張圖的排版才會一致，量到的位置才對得上背景。
+        pr = clean
+        colors = [b['_probe'] for b in boxes if b.get('_probe')]
+        for tc, color in zip(cells, colors):
+            blank_tc = re.sub(r'<a:t>.*?</a:t>', '<a:t></a:t>', tc, flags=re.S)
+            if blank_tc in pr:
+                pr = pr.replace(blank_tc, paint(blank_tc, color), 1)
+        probed[n] = pr
 
-    # 產生「只有設計、沒有填寫內容」的 pptx，用來渲染背景
-    bgpptx = os.path.join(outdir, '_bg.pptx')
-    zout = zipfile.ZipFile(bgpptx, 'w', zipfile.ZIP_DEFLATED)
-    for it in zin.infolist():
-        zout.writestr(it, cleaned[it.filename].encode('utf8')
-                      if it.filename in cleaned else zin.read(it.filename))
-    zout.close()
+    # 先把整包讀成記憶體快照：writestr() 會改寫傳進去的 ZipInfo，
+    # 直接沿用 zin.infolist() 寫第二個檔時，來源的偏移量就被弄壞了。
+    snapshot = [(it.filename, it.date_time, zin.read(it.filename)) for it in zin.infolist()]
 
-    # pptx → pdf → png
-    prof = 'file:///tmp/_lo_slideview'
-    subprocess.run(['soffice', '--headless', f'-env:UserInstallation={prof}',
-                    '--convert-to', 'pdf', bgpptx, '--outdir', outdir],
-                   check=True, capture_output=True, timeout=600)
-    pdf = os.path.join(outdir, '_bg.pdf')
-    subprocess.run(['pdftoppm', '-png', '-r', '110', pdf, os.path.join(outdir, 'bg')],
-                   check=True, capture_output=True, timeout=600)
-    os.remove(bgpptx)
-    os.remove(pdf)
+    def build(src_map, path):
+        z = zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED)
+        for name, when, raw in snapshot:
+            z.writestr(zipfile.ZipInfo(name, when),
+                       src_map[name].encode('utf8') if name in src_map else raw,
+                       zipfile.ZIP_DEFLATED)
+        z.close()
 
-    # 統一檔名為 bg-1.png…（pdftoppm 會補零）
-    for f in sorted(os.listdir(outdir)):
-        m = re.match(r'bg-0*(\d+)\.png$', f)
-        if m and f != f'bg-{int(m.group(1))}.png':
-            os.rename(os.path.join(outdir, f), os.path.join(outdir, f'bg-{int(m.group(1))}.png'))
+    probe_pptx = os.path.join(outdir, '_probe.pptx')
+    build(probed, probe_pptx)
+    probe_pngs = render(probe_pptx, outdir, '_probe', 110, '/tmp/_lo_probe')
+    fixed = measure(probe_pngs, all_boxes)
+    os.remove(probe_pptx)
+    for f in probe_pngs.values():
+        os.remove(f)
+
+    bg_pptx = os.path.join(outdir, '_bg.pptx')
+    build(cleaned, bg_pptx)
+    bg_pngs = render(bg_pptx, outdir, 'bg', 110, '/tmp/_lo_slideview')
+    os.remove(bg_pptx)
+    for i, f in bg_pngs.items():                 # 統一檔名為 bg-1.png…
+        want = os.path.join(outdir, f'bg-{i}.png')
+        if f != want:
+            os.rename(f, want)
 
     data = {'w': EMU_W, 'h': EMU_H, 'slides': len(names),
             'boxes': all_boxes, 'imgs': IMG_SLOTS}
@@ -192,7 +287,7 @@ def main(tpl, outdir):
     pngs = len([f for f in os.listdir(outdir) if f.endswith('.png')])
     size = sum(os.path.getsize(os.path.join(outdir, f)) for f in os.listdir(outdir))
     print(f'投影片 {len(names)} 張　背景圖 {pngs} 張　填寫方框 {len(all_boxes)} 個　'
-          f'合計 {size/1048576:.1f} MB')
+          f'（其中 {fixed} 個由實際渲染量到位置）　合計 {size / 1048576:.1f} MB')
     return 0 if pngs == len(names) else 1
 
 

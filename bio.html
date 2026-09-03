@@ -1265,6 +1265,34 @@ async function loadSlides(){
   SLIDES = await r.json();
   return SLIDES;
 }
+/* ── 收掉模板留給「手寫」的空行 ─────────────────────────────────
+   原版每一題下面都留了幾行空白、或幾條「>」引導線，是印出來讓人手寫用的。
+   在網頁上打字時這些行還在，會把真正填的內容擠到剩下一點點空間，字被縮到
+   很小，看起來就「格式怪怪的」。
+
+   規則：這個方框已經填了字，就把「沒有實際文字」的段落收起來——
+   但**開頭**的空行要留著，那是版面對齊用的墊高（例如最近十位客戶表右欄，
+   靠前面幾行空白把「一般／理想／夢幻引薦」推到對應的說明文字旁邊）。 */
+const REAL_TXT = /[^\s\u3000>＞<＜\-–—•·●・]/;      // 有沒有「真正的字」
+function subTok(t, vals){
+  return String(t).replace(/\{\{(\w+)\}\}/g, (m, k) => (vals[k] !== undefined ? vals[k] : ''));
+}
+function tidyParas(box, vals){
+  const info = box.p.map(p => {
+    const raw = p.r.map(r => r.t).join('');
+    return {p, tok: /\{\{\w+\}\}/.test(raw), real: REAL_TXT.test(subTok(raw, vals))};
+  });
+  if(!info.some(x => x.tok && x.real)) return box.p;    // 還沒填字就維持原樣
+  let lead = 0;
+  while(lead < info.length && !info[lead].real) lead++;  // 開頭的空行保留
+  return info.filter((x, i) => i < lead || x.real).map(x => {
+    if(!x.tok) return x.p;
+    // 答案那一行前面常黏著「>」與一堆空白（引導線的殘留），一併拿掉
+    const runs = x.p.r.filter(r => /\{\{\w+\}\}/.test(r.t) || REAL_TXT.test(subTok(r.t, vals)));
+    return runs.length ? Object.assign({}, x.p, {r: runs}) : x.p;
+  });
+}
+
 /* 段落的 runs → HTML，{{token}} 換成填寫內容 */
 const EMU = 9525;                       // 1px = 9525 EMU（12192000 EMU = 1280px）
 function runsHTML(para, vals){
@@ -1313,7 +1341,7 @@ function renderSlideView(lang){
       return `<div class="sbox" style="--fs:1;left:${pct(b.x,S.w)};top:${pct(b.y,S.h)};`
            + `width:${pct(b.w,S.w)};height:${pct(b.h,S.h)};justify-content:${just};`
            + `padding:${pad[1]} ${pad[2]} ${pad[3]} ${pad[0]}">`
-           + b.p.map(p => runsHTML(p, vals)).join('') + `</div>`;
+           + tidyParas(b, vals).map(p => runsHTML(p, vals)).join('') + `</div>`;
     }).join('');
     const pics = (imgs[n] || []).filter(i => DATA[i.id]).map(i =>
       `<img class="simg" src="${DATA[i.id]}" style="left:${pct(i.x,S.w)};top:${pct(i.y,S.h)};`
@@ -1447,6 +1475,43 @@ function tokenValues(d, lang){
   t.gr_center     = g('name') + '\n' + (g('industry') || g('rep'));
   return t;
 }
+/* PPT 也要收掉同樣的空行，匯出的檔案才會跟預覽長得一樣。
+   這裡直接在 XML 上做：一個 txBody 裡若有「已經填了字」的 token，
+   就把沒有實際文字的 <a:p> 刪掉（開頭的留著），並拿掉答案那行前面的引導符號。
+   注意要在 fillXml 之前跑 —— 那時還沒有 <a:br>，段落結構最單純。 */
+function unescXml(t){
+  return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"')
+          .replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+function paraText(chunk){
+  return unescXml((chunk.match(/<a:t>[\s\S]*?<\/a:t>/g) || [])
+    .map(t => t.slice(5, -6)).join(''));
+}
+function tidyXml(xml, vals){
+  return xml.replace(/<(p|a):txBody>[\s\S]*?<\/\1:txBody>/g, body => {
+    const paras = body.match(/<a:p>[\s\S]*?<\/a:p>/g);
+    if(!paras || paras.length < 2) return body;
+    const info = paras.map(p => {
+      const raw = paraText(p);
+      return {p, tok: /\{\{\w+\}\}/.test(raw), real: REAL_TXT.test(subTok(raw, vals))};
+    });
+    if(!info.some(x => x.tok && x.real)) return body;
+    let lead = 0;
+    while(lead < info.length && !info[lead].real) lead++;
+    const keep = info.filter((x, i) => i < lead || x.real);
+    if(!keep.length) return body;                       // txBody 至少要留一段
+    const kept = keep.map(x => {
+      if(!x.tok) return x.p;
+      return x.p.replace(/<a:r>[\s\S]*?<\/a:r>/g, run => {
+        const t = paraText(run);
+        return (/\{\{\w+\}\}/.test(t) || REAL_TXT.test(subTok(t, vals))) ? run : '';
+      });
+    }).join('');
+    const a = body.indexOf(paras[0]);
+    const b = body.lastIndexOf(paras[paras.length - 1]) + paras[paras.length - 1].length;
+    return body.slice(0, a) + kept + body.slice(b);
+  });
+}
 /* 把 {{token}} 換成文字；換行要拆成多個 run 加 <a:br/> */
 function fillXml(xml, vals){
   return xml.replace(/<a:r>((?:(?!<a:r>)[\s\S])*?)<a:t>([^<]*?)\{\{(\w+)\}\}([^<]*?)<\/a:t>\s*<\/a:r>/g,
@@ -1492,14 +1557,18 @@ function boxScale(box, vals){
   if(W <= 4 || H <= 4) return 1;
   const fill = t => String(t).replace(/\{\{(\w+)\}\}/g,
     (m, k) => (vals[k] !== undefined ? vals[k] : ''));
+  const paras = tidyParas(box, vals);
   const height = sc => {
     let h = 0;
-    box.p.forEach(p => {
+    paras.forEach(p => {
       const sz = Math.max(1400, ...p.r.map(r => r.sz)) / 100 * 4 / 3 * sc;
       // 留 8% 餘裕：估算再準也會有誤差，寧可小一點也不要滿出來
       const avail = Math.max(20, (W - (p.ml || 0) / EMU * sc) * 0.92);
       const txt = (p.bu ? p.bu + '\u2003' : '') + p.r.map(r => fill(r.t)).join('');
-      const lh = sz * (p.ls || 1.2);
+      // PowerPoint / LibreOffice 用字型本身的 ascent+descent 排行高，中文字型
+      // 大約是字級的 1.45 倍（實測 14pt 的行距約 30px @100dpi），不是 1.2。
+      // 這個估算只給 PPT 用；網頁預覽是直接量 DOM 的實際高度。
+      const lh = sz * (p.ls || 1) * 1.45;
       txt.split('\n').forEach(seg => {
         h += Math.max(1, Math.ceil(estWidth(seg, sz) / avail)) * lh;
       });
@@ -1532,12 +1601,23 @@ function tokenBoxes(S){
   return map;
 }
 function autofitXml(xml, vals, tokBox){
-  return xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, sp => {
+  xml = xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, sp => {
     const m = sp.match(/\{\{(\w+)\}\}/);
     const box = m && tokBox[m[1]];
     if(!box) return sp;
     const sc = boxScale(box, vals);
     return sc >= 0.995 ? sp : setAutofit(sp, Math.round(sc * 100000));
+  });
+  // 表格儲存格不吃 <a:normAutofit>（PowerPoint 是把列撐高），內容太多時
+  // 直接把字級調小，匯出的 PPT 才會跟預覽長得一樣、也不會壓到下一列。
+  return xml.replace(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g, tc => {
+    const m = tc.match(/\{\{(\w+)\}\}/);
+    const box = m && tokBox[m[1]];
+    if(!box) return tc;
+    const sc = boxScale(box, vals);
+    if(sc >= 0.995) return tc;
+    return tc.replace(/\ssz="(\d+)"/g,
+      (mm, n) => ' sz="' + Math.max(900, Math.round(Number(n) * sc)) + '"');
   });
 }
 
@@ -1556,7 +1636,7 @@ async function exportPPT(lang){
     const names = Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n));
     for(const n of names){
       const xml = await zip.file(n).async('string');
-      zip.file(n, fillXml(autofitXml(xml, vals, tokBox), vals));
+      zip.file(n, fillXml(autofitXml(tidyXml(xml, vals), vals, tokBox), vals));
     }
     await injectPics(zip, S);
     const blob = await zip.generateAsync({type:'blob',
