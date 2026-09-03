@@ -28,6 +28,9 @@
   - **英文版**：表單最後一區「英文版 English」按一下自動翻譯，結果存成 `en_<欄位>`，可手動修改；另有「預覽英文版 PDF／匯出英文版 PPT」。翻譯走 **MyMemory 公開 API**（`api.mymemory.translated.net`，免費、支援 CORS、匿名每日有字數上限，額度用完會跳提示）。`EN_SKIP` 列的欄位不外送（姓名、公司名、生日、星座、各種年資），姓名走拼音表、產業走產業對照表、星座走 `ZODIAC_EN`。封面與 SLOGAN 頁本來就是中英並排的設計，兩種語言固定都顯示。**表格的欄位名稱（公司名稱、職業…）是模板設計的一部分，維持中文**。
   - ⚠️ **不要用「後行斷言」正規式（`(?<=…)`）**：舊版 Safari / iPad 在載入時就會拋 SyntaxError，整個檔案掛掉。切句子請用 `splitSentences()` 那種逐字掃描的寫法。
   - **匯出 PDF**：`slides/` 內是 23 張純設計背景圖 + `slides.json`（每個填寫方框的座標／字級／對齊）。網頁疊上文字排出 1280×720px 的橫式投影片，列印即 PDF（`@page size:13.333in 7.5in`）。這兩樣由 `tools/build-slide-view.py` 從模板產生，**模板改了就要重跑**。
+  - ⚠️ **表格方框的座標不能只用 `<a:tr h>` 算**：那是「最小列高」，實際渲染時列會被內容撐高（GAINS 左欄的長說明文字就會撐高），越後面的列差越多，實測差到 67px，文字會蓋到別列去。`build-slide-view.py` 因此會多渲染一張「探測圖」：把每個要填字的儲存格塗成獨一無二的顏色，再從圖上量回實際位置（85 個方框中有 61 個是這樣量到的）。**改動這支腳本後要檢查背景圖的框線與 `slides.json` 的方框上緣對得起來。**
+  - **模板留的手寫空行**：原版每題下面留了幾行空白／「>」引導線（印出來手寫用），數位填寫時會把內容擠到很小。`tidyParas()`（預覽）與 `tidyXml()`（PPT）會在「這個方框已經填了字」時把沒有實際文字的段落收起來，但**開頭的空行要保留**——那是版面對齊用的墊高（最近十位客戶表右欄靠它把「一般／理想／夢幻引薦」推到對應說明旁邊）。
+  - **PPT 的字級估算**：`boxScale()` 估的行高用 **字級 × 1.45**（PowerPoint／LibreOffice 用字型的 ascent+descent 排版，中文字型約 1.45 倍），不是網頁 CSS 的 1.2。表格儲存格不吃 `<a:normAutofit>`，要直接改 run 的 `sz`。網頁預覽走另一條路：直接量 DOM 的實際高度（`shrinkBoxes()`）。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT（已存成 `tools/bio-source.pptx`）產生：在表格空格與文字框注入 token、補上原檔沒有的欄位、把版面頁尾的「XX 分會」換成分會名。**原始 PPT 若改版，換掉 `tools/bio-source.pptx` 再重跑此腳本即可**，不要手改模板。改完模板要接著重跑 `build-slide-view.py`。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
