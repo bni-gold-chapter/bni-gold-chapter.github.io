@@ -2,6 +2,7 @@
 //  - 邱士傑 : recovered from tracker_v5 backup (old column 0)
 //  - 洪倧勝 : moved out of tracker_v6 (old column 1) -> writes tracker_v7 without him
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
+const fb = require('./fb-auth');
 const stamp = new Date().toLocaleString('zh-TW', { hour12: false }).replace(/-/g, '/');
 
 const META = {
@@ -18,13 +19,13 @@ function rec(name, ver, items, note) {
 
 (async () => {
   // 1) 邱士傑 from v5 backup
-  const v5 = await (await fetch(`${FB}/tracker_v5.json`)).json();
+  const v5 = await (await fetch(await fb.url(`${FB}/tracker_v5.json`))).json();
   const qCol = v5.old.map(r => r[0]);
   const qNote = (v5.oldNotes || [])[0] || '';
   const qiu = rec('邱士傑', 'old', qCol, qNote);
 
   // 2) 洪倧勝 from v6 (column 1), and build v7 without him
-  const v6 = await (await fetch(`${FB}/tracker_v6.json`)).json();
+  const v6 = await (await fetch(await fb.url(`${FB}/tracker_v6.json`))).json();
   const IDX = 1;
   const hCol = v6.old.map(r => r[IDX]);
   const hNote = (v6.oldNotes || [])[IDX] || '';
@@ -41,13 +42,13 @@ function rec(name, ver, items, note) {
   console.log('archive 洪倧勝:', hong.done + '/' + hong.total, '| note:', hong.note);
   console.log('v7 old:', v7.old.length, 'rows x', v7.old[0].length, 'cols | oldNotes:', JSON.stringify(v7.oldNotes));
 
-  const a = await fetch(`${FB}/archive_v1.json`, {
+  const a = await fetch(await fb.url(`${FB}/archive_v1.json`), {
     method: 'PUT', headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify([qiu, hong])
   });
   console.log('PUT archive_v1', a.status);
 
-  const b = await fetch(`${FB}/tracker_v7.json`, {
+  const b = await fetch(await fb.url(`${FB}/tracker_v7.json`), {
     method: 'PUT', headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify(v7)
   });
