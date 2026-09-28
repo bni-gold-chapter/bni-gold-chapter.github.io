@@ -2,6 +2,7 @@
 // 用法：node edit-member.js <姓名> <欄位> <新值>
 //   例：node edit-member.js 賴冠仁 join 115.08.20
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
+const fb = require('./fb-auth');
 const NODE = 'tracker_v7';
 const [, , name, field, ...rest] = process.argv;
 const value = rest.join(' ');
@@ -13,7 +14,7 @@ if (!name || !field || !OK.includes(field)) {
 }
 
 (async () => {
-  const d = await (await fetch(`${FB}/${NODE}.json`)).json();
+  const d = await (await fetch(await fb.url(`${FB}/${NODE}.json`))).json();
   const list = d.newMembers || [];
   const i = list.findIndex(x => x.name === name);
   if (i < 0) { console.error(`名單中找不到「${name}」（目前：${list.map(x => x.name).join('、')}）`); process.exit(1); }
@@ -21,7 +22,7 @@ if (!name || !field || !OK.includes(field)) {
   const before = list[i][field];
   if (before === value) { console.log(`「${name}」的 ${field} 已經是「${value}」，不需修改。`); return; }
 
-  await fetch(`${FB}/backups_v1.json`, {
+  await fetch(await fb.url(`${FB}/backups_v1.json`), {
     method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({ t: Date.now(), by: '導師協調員', reason: `修改 ${name} 的 ${field}`, data: d })
   });
@@ -32,13 +33,13 @@ if (!name || !field || !OK.includes(field)) {
   if (field === 'note') { d.newNotes = d.newNotes || []; d.newNotes[i] = value; }
   d.newMembers = list;
 
-  const put = await fetch(`${FB}/${NODE}.json`, {
+  const put = await fetch(await fb.url(`${FB}/${NODE}.json`), {
     method: 'PUT', headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify(d)
   });
   console.log(`✔ 寫入 ${NODE}：HTTP ${put.status}`);
 
-  await fetch(`${FB}/logs_v1.json`, {
+  await fetch(await fb.url(`${FB}/logs_v1.json`), {
     method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
       t: Date.now(), who: '導師協調員', ver: '系統', member: name, item: field,
@@ -47,7 +48,7 @@ if (!name || !field || !OK.includes(field)) {
   });
   console.log('✔ 已寫入操作紀錄');
 
-  const v = await (await fetch(`${FB}/${NODE}.json`)).json();
+  const v = await (await fetch(await fb.url(`${FB}/${NODE}.json`))).json();
   const m = v.newMembers.find(x => x.name === name);
   console.log(`\n${name}：${JSON.stringify(m, null, 1)}`);
 })().catch(e => { console.error('失敗：', e.message); process.exit(1); });

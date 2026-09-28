@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>BNI 全鑫白金分會｜四加一表</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -840,10 +841,34 @@ function filledCount(d){
 }
 
 /* ═══════════════ Firebase ═══════════════ */
+/* ── 匿名登入 ─────────────────────────────────────────────────
+   資料庫規則收緊後（要求 auth != null）才連得上。
+   刻意設計成「失敗也不擋路」：如果 Firebase 主控台還沒啟用匿名登入，
+   或登入逾時，照樣往下走 —— 規則還開著的時候一切如常。
+   這讓程式可以先上線、確認沒問題，再回主控台收緊規則。 */
+function ensureAuth(){
+  return new Promise(function(resolve){
+    var done = false;
+    var fin = function(){ if(!done){ done = true; resolve(); } };
+    setTimeout(fin, 4000);                 // 最多等 4 秒，不讓它卡住畫面
+    try{
+      if(!firebase.auth){ return fin(); }
+      firebase.auth().onAuthStateChanged(function(u){ if(u) fin(); });
+      firebase.auth().signInAnonymously().catch(function(e){
+        console.warn('匿名登入失敗，改用未驗證連線：', (e && e.code) || e);
+        fin();
+      });
+    }catch(e){ fin(); }
+  });
+}
 function initSync(){
   if(!window.firebase){ return; }
+  try{ firebase.initializeApp(FIREBASE_CONFIG); }
+  catch(e){ return; }
+  ensureAuth().then(connectSync);
+}
+function connectSync(){
   try{
-    firebase.initializeApp(FIREBASE_CONFIG);
     SHARED = true;
     if(MKEY){
       dbRef = firebase.database().ref(NODE+'/'+MKEY);

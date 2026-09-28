@@ -6,6 +6,7 @@
 <title>BNI GOLD CHAPTER｜New Member Onboarding Tracker</title>
 <!-- Firebase 即時資料庫 (compat 版,全域 firebase) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -460,18 +461,44 @@ function getCfg(){
   return null;
 }
 function setMode(cls,txt){ const m=document.getElementById('mode'); m.className=cls; m.textContent=txt; }
+/* ── 匿名登入 ─────────────────────────────────────────────────
+   資料庫規則收緊後（要求 auth != null）才連得上。
+   刻意設計成「失敗也不擋路」：如果 Firebase 主控台還沒啟用匿名登入，
+   或登入逾時，照樣往下走 —— 規則還開著的時候一切如常。
+   這讓程式可以先上線、確認沒問題，再回主控台收緊規則。 */
+function ensureAuth(){
+  return new Promise(function(resolve){
+    var done = false;
+    var fin = function(){ if(!done){ done = true; resolve(); } };
+    setTimeout(fin, 4000);                 // 最多等 4 秒，不讓它卡住畫面
+    try{
+      if(!firebase.auth){ return fin(); }
+      firebase.auth().onAuthStateChanged(function(u){ if(u) fin(); });
+      firebase.auth().signInAnonymously().catch(function(e){
+        console.warn('匿名登入失敗，改用未驗證連線：', (e && e.code) || e);
+        fin();
+      });
+    }catch(e){ fin(); }
+  });
+}
 function initSync(){
   const cfg=getCfg();
   if(!cfg || !window.firebase){ setMode('m-local','● 本機模式'); return; }
   try{
     firebase.initializeApp(cfg);
+  }catch(e){ setMode('m-local','● 本機模式（設定有誤）'); return; }
+  setMode('m-warn','☁ 連線中…');
+  ensureAuth().then(connectSync);
+}
+function connectSync(){
+  try{
     dbRef = firebase.database().ref('tracker_v7');
     logRef = firebase.database().ref('logs_v1');
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
     firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[];
       if(!editing && (CUR==='arc' || (VIEWNAME&&!VIEWALL&&!VIEWONLY))) render(); });
-    SHARED=true; setMode('m-warn','☁ 連線中…');
+    SHARED=true;
     dbRef.on('value', snap=>{
       const v=snap.val();
       if(v && (v.old || v.new || v.mlist)){

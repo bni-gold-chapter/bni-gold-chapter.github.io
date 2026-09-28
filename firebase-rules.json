@@ -1,0 +1,20 @@
+{
+  "_說明": [
+    "Firebase Realtime Database 安全規則。貼到 Firebase 主控台 →",
+    "Realtime Database → 規則 → 發布。套用前請先讀 CLAUDE.md 的",
+    "「收緊 Firebase 權限」那一節，照順序做，不要跳步。",
+    "",
+    "auth != null：要求先登入。網頁與維護腳本都會自動做匿名登入，",
+    "使用者完全無感；但直接打 REST 網址的人會被擋下來。",
+    "",
+    "newData.exists()：擋掉整個節點被刪除。單筆刪除仍然允許。"
+  ],
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+
+    "tracker_v7": { ".write": "auth != null && newData.exists()" },
+    "archive_v1": { ".write": "auth != null && newData.exists()" },
+    "bio_v1":     { ".write": "auth != null && newData.exists()" }
+  }
+}

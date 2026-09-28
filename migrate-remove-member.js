@@ -1,6 +1,7 @@
 // Migrate tracker data: drop one member column from the OLD table, preserving all other progress/notes.
 // Usage: node migrate-remove-member.js <fromNode> <toNode> <oldMemberIndexToRemove>
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
+const fb = require('./fb-auth');
 
 const [, , from, to, idxStr] = process.argv;
 const idx = parseInt(idxStr, 10);
@@ -10,7 +11,7 @@ if (!from || !to || Number.isNaN(idx)) {
 }
 
 (async () => {
-  const res = await fetch(`${FB}/${from}.json`);
+  const res = await fetch(await fb.url(`${FB}/${from}.json`));
   const d = await res.json();
   if (!d || !d.old || !d.new) { console.error('source data missing'); process.exit(1); }
 
@@ -32,7 +33,7 @@ if (!from || !to || Number.isNaN(idx)) {
   const done = out.old[0].map((_, c) => out.old.filter(r => r[c] && r[c][0] === 1).length);
   console.log('completed counts per remaining old member:', done.join(', '));
 
-  const put = await fetch(`${FB}/${to}.json`, {
+  const put = await fetch(await fb.url(`${FB}/${to}.json`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify(out)

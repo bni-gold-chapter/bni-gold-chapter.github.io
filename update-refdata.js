@@ -3,6 +3,7 @@
 // 用法： node update-refdata.js
 const BASE = 'https://service-2026-937515995986.us-west1.run.app';
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
+const fb = require('./fb-auth');
 
 const num = (s, k) => {
   const m = s.match(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':(-?[0-9.eE+]+)'));
@@ -40,7 +41,7 @@ const num = (s, k) => {
     : JSON.stringify(x);
   if (!process.env.FORCE) {
     try {
-      const cur = await (await fetch(`${FB}/refdata/members.json`)).json();
+      const cur = await (await fetch(await fb.url(`${FB}/refdata/members.json`))).json();
       if (cur && stable(cur) === stable(members)) {
         console.log(`數據無變化（${count} 位會員），略過寫入。`);
         return;
@@ -50,7 +51,7 @@ const num = (s, k) => {
 
   // 4) 寫入 Firebase
   const updatedAt = new Date().toLocaleString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' });
-  const res = await fetch(`${FB}/refdata.json`, {
+  const res = await fetch(await fb.url(`${FB}/refdata.json`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({ members, meta: { updatedAt, bundle: bm[0] } })
