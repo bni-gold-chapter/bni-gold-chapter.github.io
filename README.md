@@ -143,3 +143,14 @@ python3 tools/build-roman-table.py > 拼音表.txt                 # 貼進 bio.
 - **`dbRef` 監聽會用雲端內容覆寫 `localStorage`**：雲端資料被清空後，各裝置的本機副本
   是唯一的備份來源，而這行覆寫會把它們一台一台消掉。現在覆寫前會先過 `rescueLocal()`。
 - PowerShell 5.1 讀無 BOM 的 `.ps1` 會把中文當亂碼 → 腳本內避免中文字面值。
+
+---
+
+## 給 AI 助手
+
+| 你用的工具 | 讀哪一份 |
+|---|---|
+| Claude Code | `CLAUDE.md`（會自動讀取） |
+| OpenAI Codex / ChatGPT | `AGENTS.md`（Codex 會自動讀取；ChatGPT 請把整份貼給它） |
+
+兩份都包含安全規則。**動任何雲端資料前先備份**——這套資料已經遺失過兩次。
