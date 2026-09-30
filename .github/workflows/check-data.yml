@@ -1,0 +1,17 @@
+name: 檢視雲端資料現況（唯讀）
+
+# 懷疑資料不見、或想確認收緊權限後還讀得到時，手動跑這個。
+# 只讀不寫，跑幾次都不會動到資料。
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 讀取並列出各節點現況
+        run: node check-data.js
