@@ -368,7 +368,6 @@ function dfltOld(){ return OLD_ITEMS.map(()=>OLD_MEMBERS.map(()=>[0,''])); }
    協調員線上增刪後不必回來改這裡。 */
 let NEW_MEMBERS = [
   {name:'楊有成', npc:'', ind:'商業影像規劃', mentor:'林永恩', light:null, join:'115.05.28', miss:'', note:''},
-  {name:'許柏祥', npc:'', ind:'系統櫃', mentor:'陳廷澐', light:null, join:'115.06.04', miss:'', note:''},
   {name:'賴冠仁', npc:'', ind:'咖啡產業', mentor:'林淙仁', light:null, join:'115.08.20', miss:'', note:''},
   {name:'林家豪', npc:'', ind:'鍍膜美容', mentor:'李哲維', light:null, join:'115.08.20', miss:'', note:''},
   {name:'王天暘', npc:'', ind:'短影音製作', mentor:'林永恩', light:null, join:'115.08.27', miss:'', note:''},
@@ -450,6 +449,7 @@ function namesOf(d){
   return [].concat((d&&d.oldMembers)||[], (d&&d.newMembers)||[])
            .map(m=>m&&m.name).filter(Boolean);
 }
+let ARCHIVE_LOADED=false, PENDING_RESCUE=null;
 function rescueLocal(cloud){
   let raw, local;
   try{ raw=localStorage.getItem(KEY); local=raw&&JSON.parse(raw); }catch(e){ return; }
@@ -457,9 +457,24 @@ function rescueLocal(cloud){
   const inCloud=namesOf(cloud);
   const missing=namesOf(local).filter(n=>inCloud.indexOf(n)<0);
   if(!missing.length) return;
-  // 先存起來（村民唯讀裝置也要存，他們的副本同樣可能較完整），存過就不再覆蓋——第一份最完整
+  // raw 先留在記憶體，等封存名單到齊再決定要不要存檔示警（正常出村不該佔掉救援位）
+  PENDING_RESCUE={missing:missing, raw:raw};
+  evalRescue();
+  // 保險：封存資料若遲遲沒到（離線／規則擋住），5 秒後仍退回原本的保守行為
+  setTimeout(()=>{ if(!ARCHIVE_LOADED){ ARCHIVE_LOADED=true; evalRescue(); } }, 5000);
+}
+/* 只有「雲端沒有、封存也沒有」的人才算真的遺失。
+   正常出村封存的人本來就會從在村名單消失，若不排除，
+   每次有人出村所有裝置都會跳紅色警告，久了就沒人當真。 */
+function evalRescue(){
+  if(!PENDING_RESCUE || !ARCHIVE_LOADED) return;
+  const archived=(ARCHIVE||[]).map(a=>a&&a.name).filter(Boolean);
+  const lost=PENDING_RESCUE.missing.filter(n=>archived.indexOf(n)<0);
+  const raw=PENDING_RESCUE.raw;
+  PENDING_RESCUE=null;
+  if(!lost.length) return;   // 都只是正常出村，不存檔也不示警
   try{ if(!localStorage.getItem(RESCUE_KEY)) localStorage.setItem(RESCUE_KEY, raw); }catch(e){}
-  if(!VIEWNAME) showRescue(missing);   // 但只有導師端才跳提示，不要嚇到村民
+  if(!VIEWNAME) showRescue(lost);   // 只有導師端才跳提示，不要嚇到村民
 }
 function downloadRescue(){
   const raw=localStorage.getItem(RESCUE_KEY); if(!raw){ alert('這台裝置沒有救援快照。'); return; }
@@ -550,6 +565,7 @@ function connectSync(){
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
     firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[];
+      ARCHIVE_LOADED=true; evalRescue();
       if(!editing && (CUR==='arc' || (VIEWNAME&&!VIEWALL&&!VIEWONLY))) render(); });
     SHARED=true;
     dbRef.on('value', snap=>{
