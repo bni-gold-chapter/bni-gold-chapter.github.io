@@ -438,6 +438,59 @@ function load(){
   return defaults();
 }
 
+/* ====== 本機救援快照 ======
+   2026/09 的資料遺失事件：雲端整個被清空後，某台裝置一開追蹤表就用它本機
+   的副本自動回填（見 dbRef 監聽的 else 分支），但那台的副本剛好少了一位村民。
+   問題在於 dbRef 監聽會拿雲端內容直接覆寫 localStorage —— 其他裝置上更完整
+   的副本，只要一開頁就永久消失，連救的機會都沒有。
+   所以覆寫前先比名單：本機有、雲端沒有的人，代表這台留著雲端已缺的資料，
+   原封不動另存一份到 RESCUE_KEY 再提示下載。只讀不寫雲端。 */
+const RESCUE_KEY = KEY + '_rescue';
+function namesOf(d){
+  return [].concat((d&&d.oldMembers)||[], (d&&d.newMembers)||[])
+           .map(m=>m&&m.name).filter(Boolean);
+}
+function rescueLocal(cloud){
+  let raw, local;
+  try{ raw=localStorage.getItem(KEY); local=raw&&JSON.parse(raw); }catch(e){ return; }
+  if(!local || !local.old || !local.new) return;
+  const inCloud=namesOf(cloud);
+  const missing=namesOf(local).filter(n=>inCloud.indexOf(n)<0);
+  if(!missing.length) return;
+  // 先存起來（村民唯讀裝置也要存，他們的副本同樣可能較完整），存過就不再覆蓋——第一份最完整
+  try{ if(!localStorage.getItem(RESCUE_KEY)) localStorage.setItem(RESCUE_KEY, raw); }catch(e){}
+  if(!VIEWNAME) showRescue(missing);   // 但只有導師端才跳提示，不要嚇到村民
+}
+function downloadRescue(){
+  const raw=localStorage.getItem(RESCUE_KEY); if(!raw){ alert('這台裝置沒有救援快照。'); return; }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));
+  a.download='本機救援備份.json'; a.click();
+}
+function showRescue(missing){
+  if(document.getElementById('rescuebar')) return;
+  const bar=document.createElement('div');
+  bar.id='rescuebar';
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#7f1d1d;'+
+    'color:#fff;padding:12px 14px;font-size:14px;line-height:1.6;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
+  const msg=document.createElement('div');
+  msg.textContent='⚠ 這台裝置留有雲端已經沒有的村民資料：'+missing.join('、')+
+    '　請按「下載救援檔」把它存下來，再交給導師協調員。';
+  const row=document.createElement('div');
+  row.style.cssText='margin-top:8px;display:flex;gap:8px;flex-wrap:wrap';
+  const dl=document.createElement('button');
+  dl.textContent='⬇ 下載救援檔';
+  dl.style.cssText='padding:8px 14px;border:0;border-radius:6px;font-size:14px;cursor:pointer;background:#fff;color:#7f1d1d;font-weight:700';
+  dl.onclick=downloadRescue;
+  const later=document.createElement('button');
+  later.textContent='稍後再說';
+  later.style.cssText='padding:8px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;font-size:14px;cursor:pointer;background:transparent;color:#fff';
+  later.onclick=()=>bar.remove();   // 快照留在 localStorage，隨時還能再下載
+  row.appendChild(dl); row.appendChild(later);
+  bar.appendChild(msg); bar.appendChild(row);
+  document.body.appendChild(bar);
+}
+
 /* ====== Firebase 即時同步 ====== */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyA9zxiowhwSmWF0hFgemvJiyeofEDvQs1o",
@@ -502,7 +555,9 @@ function connectSync(){
     dbRef.on('value', snap=>{
       const v=snap.val();
       if(v && (v.old || v.new || v.mlist)){
-        applyingRemote=true; DATA=normalizeData(v);
+        applyingRemote=true;
+        rescueLocal(v);   // 覆寫 localStorage 前，先留住本機比雲端完整的部分
+        DATA=normalizeData(v);
         if(REFDATA) applyRefdata(REFDATA);   // 名單從雲端載入後，重套最新紅綠燈數據（避免被舊快照蓋回）
         localStorage.setItem(KEY, JSON.stringify(DATA));
         if(!editing) render();

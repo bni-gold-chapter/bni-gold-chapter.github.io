@@ -1,0 +1,39 @@
+name: 備份 Firebase 到 repo
+
+# 每天把整個資料庫匯出成 backups/ 裡的檔案並 commit。
+# git 歷史就是一份離線、有版本的備份 —— 資料庫整個被清空也救得回來。
+#
+# 2026/09 的教訓：原本的 backups_v1 跟它要備份的資料在同一個資料庫，
+# 資料庫一被清空，備份跟著沒了。備份必須離開那個資料庫。
+on:
+  schedule:
+    - cron: '17 19 * * *'      # 每天台灣時間 03:17
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 匯出各節點
+        run: node backup-firebase.js
+
+      - name: 有變動才 commit
+        if: always()          # 上一步因為「雲端是空的」而失敗時，仍要把它保住的舊備份留下
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add backups
+          if git diff --cached --quiet; then
+            echo '資料沒有變動，不產生 commit。'
+          else
+            git commit -m '備份 Firebase 資料（自動）'
+            git push
+          fi
