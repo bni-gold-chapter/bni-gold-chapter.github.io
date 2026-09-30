@@ -55,7 +55,7 @@
 | 1 | 程式上線（已完成） | 網頁照常運作，Console 可能出現「匿名登入失敗」警告，屬正常 |
 | 2 | 主控台 → Authentication → Sign-in method → **啟用「匿名」** | 重開網頁，Console 不再出現警告 |
 | 3 | 觸發一次 `update-refdata.yml` | log 不再出現「匿名登入未取得 token」 |
-| 4 | 主控台 → Realtime Database → 規則 → 貼上 `firebase-rules.json` → 發布 | 見下方驗收 |
+| 4 | 主控台 → Realtime Database → 規則 → 貼上 `firebase-rules.json` **全部內容** → 發布 | 見下方驗收 |
 
 **第 4 步之後要驗收的四件事**（任一項失敗就立刻回滾）：
 
@@ -64,6 +64,9 @@
 3. 觸發 `update-refdata.yml` 成功寫入
 4. 開無痕視窗直接打 `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/bio_v1.json`
    → 應該回 `Permission denied`（**這就是收緊成功的證據**）
+
+⚠️ `firebase-rules.json` 只能有 `rules` 一個頂層鍵 —— Firebase 會拒絕其他頂層欄位，
+說明文字不要寫進那個檔案（要註解的話用 `//`，Firebase 的規則編輯器吃得下）。
 
 **回滾**：主控台 → 規則 → 改回 `{"rules":{".read":true,".write":true}}` → 發布。
 一分鐘內生效，程式端不用動。
