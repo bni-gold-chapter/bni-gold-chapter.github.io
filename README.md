@@ -68,6 +68,9 @@ BNI 全鑫白金分會．導師協調員監督用的線上系統。
 | `update-refdata.yml` | **每週日 21:30 自動** ＋ 手動 | `force`（數據無變化也寫入）|
 | `add-member.yml` | 手動 | `members` JSON 陣列 |
 | `edit-member.yml` | 手動 | `edits` JSON 陣列（`field`: ind\|mentor\|join\|npc\|note\|name）|
+| `backup-firebase.yml` | **每天 03:17 自動** ＋ 手動 | 無 —— 匯出整個資料庫到 `backups/` 並 commit |
+| `restore-firebase.yml` | 手動 | `node`（節點）＋ `confirm`（把節點名字再打一次）|
+| `check-data.yml` | 手動 | 無 —— 唯讀列出雲端各節點現況 |
 
 > ⚠️ repo 連續 **60 天沒有任何 commit**，GitHub 會自動停用排程。偶爾動一下即可。
 
@@ -79,6 +82,9 @@ node add-member.js              # 新增村民
 node edit-member.js             # 修改村民資料
 node archive-graduates.js       # 封存出村（腳本模式，網頁操作更方便）
 node migrate-remove-member.js <來源節點> <目標節點> <索引>   # 移除會員
+node check-data.js              # 唯讀：列出雲端各節點現況
+node backup-firebase.js         # 匯出整個資料庫到 backups/
+CONFIRM=<節點> node restore-firebase.js <節點>    # 從 backups/ 還原某節點
 ```
 
 ### 產生器（需 Python + `pip install pypinyin` + LibreOffice）
@@ -101,11 +107,15 @@ python3 tools/build-roman-table.py > 拼音表.txt                 # 貼進 bio.
 | `archive_v1` | 已出村封存（姓名、導師、燈號、完整檢核快照、封存時間）|
 | `refdata` | 紅綠燈數據，依姓名對應 `{light, ref, o2o, guest, train, biz}` |
 | `bio_v1` | 四加一表 `{name, data:{欄位…}, createdAt, updatedAt, updatedBy}` |
-| `backups_v1` | 出村／新增前的自動全量備份（含時間、操作者、原因）|
+| `backups_v1` | 出村／新增前的自動全量備份（含時間、操作者、原因）。⚠️ 這是**站內**備份，資料庫整個被清空時會跟著消失 —— 真正的備份在 repo 的 `backups/` |
 | `logs_v1` | 操作紀錄 |
 
 > 🔐 **安全現況**：資料庫規則目前**開放讀寫**，網址就在這個公開 repo 裡。
 > 任何人都能讀取（含 `bio_v1` 的會員個資）與刪除。收緊做法見 [CLAUDE.md](CLAUDE.md)。
+>
+> 🗃 **離線備份**：`backup-firebase.yml` 每天把整個資料庫匯出到 `backups/` 並 commit，
+> git 歷史就是有版本的備份。要還原用 `restore-firebase.yml`。
+> **2026/09 曾整個資料庫被清空**，當時 `backups_v1` 與資料同庫、一起消失 —— 詳見 [CLAUDE.md](CLAUDE.md)。
 
 ---
 
@@ -126,4 +136,10 @@ python3 tools/build-roman-table.py > 拼音表.txt                 # 貼進 bio.
 - **打勾符號**必須是 `✔︎`（U+2714 + U+FE0E）。少了變體選擇器 iOS 會顯示成灰色 emoji。
 - **html2canvas** 對離畫面元素會無聲卡死；暫存容器要放畫面內。
 - 紅綠燈檢視表**沒開 CORS**，瀏覽器抓不到，只能由腳本抓取後寫入 Firebase。
+- **備份不能跟資料放在同一個資料庫。** `backups_v1` 曾與資料一起被清空，等於沒有備份。
+- **備份腳本讀到空值時絕不可覆蓋既有備份**，否則出事後的下一次排程會把備份也清掉。
+  要同時處理「節點值是 `null`」和「節點整個不在根節點裡」兩種情況 ——
+  只走「雲端有的節點」的迴圈碰不到後者，會安靜地放過去。
+- **`dbRef` 監聽會用雲端內容覆寫 `localStorage`**：雲端資料被清空後，各裝置的本機副本
+  是唯一的備份來源，而這行覆寫會把它們一台一台消掉。現在覆寫前會先過 `rescueLocal()`。
 - PowerShell 5.1 讀無 BOM 的 `.ps1` 會把中文當亂碼 → 腳本內避免中文字面值。

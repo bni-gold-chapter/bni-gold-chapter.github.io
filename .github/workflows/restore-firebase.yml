@@ -1,0 +1,46 @@
+name: 從 repo 備份還原 Firebase
+
+# 只在資料真的出事時手動跑。會覆蓋雲端該節點的內容。
+# 必須把節點名字填進 confirm 欄位再打一次，避免誤觸。
+on:
+  workflow_dispatch:
+    inputs:
+      node:
+        description: '要還原的節點'
+        required: true
+        type: choice
+        options: [tracker_v7, archive_v1, bio_v1, refdata, logs_v1, backups_v1]
+      confirm:
+        description: '把上面選的節點名字再打一次以確認'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 還原
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: node restore-firebase.js '${{ inputs.node }}'
+
+      - name: 把還原前的雲端現況一起存進 repo
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add backups
+          if git diff --cached --quiet; then
+            echo '沒有新增檔案。'
+          else
+            git commit -m '還原 ${{ inputs.node }} 前的雲端現況'
+            git push
+          fi
