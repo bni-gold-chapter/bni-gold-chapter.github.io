@@ -40,6 +40,12 @@
   - **模板留的手寫空行**：原版每題下面留了幾行空白／「>」引導線（印出來手寫用），數位填寫時會把內容擠到很小。`tidyParas()`（預覽）與 `tidyXml()`（PPT）會在「這個方框已經填了字」時把沒有實際文字的段落收起來，但**開頭的空行要保留**——那是版面對齊用的墊高（最近十位客戶表右欄靠它把「一般／理想／夢幻引薦」推到對應說明旁邊）。
   - **PPT 的字級估算**：`boxScale()` 估的行高用 **字級 × 1.45**（PowerPoint／LibreOffice 用字型的 ascent+descent 排版，中文字型約 1.45 倍），不是網頁 CSS 的 1.2。表格儲存格不吃 `<a:normAutofit>`，要直接改 run 的 `sz`。網頁預覽走另一條路：直接量 DOM 的實際高度（`shrinkBoxes()`）。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT（已存成 `tools/bio-source.pptx`）產生：在表格空格與文字框注入 token、補上原檔沒有的欄位、把版面頁尾的「XX 分會」換成分會名。**原始 PPT 若改版，換掉 `tools/bio-source.pptx` 再重跑此腳本即可**，不要手改模板。改完模板要接著重跑 `build-slide-view.py`。
+- **`vcp.html`**：**VCP 互評**月度分析（2026/10 新增，手機優先）。領導團隊密碼同 8888。
+  - 資料節點 `vcp_v1`：`months/<YYYY-MM>/scores/<姓名> = {v,c,p,note,at,by}`、`members/<姓名>/join = 'YYYY-MM'`（算會齡，重新入會填重新入會月份）、`settings`（分類門檻）。
+  - 總分 = V+C+P；每月依總分排名分五類：新人陪伴（會齡 < newMonths）→ 優先關懷 → 持續觀察（含比上月下滑）→ 標竿（需紅綠燈 ≥ starLight）→ 穩定。門檻可在頁面「⚙️ 規則」調整並存雲端。
+  - 紅綠燈與近 6 月缺口直接讀 `refdata`，會員名單 = `refdata` ∪ `vcp_v1/members` ∪ 有分數的人。
+  - 輸入方式：逐人輸入（改完即存）或貼上／上傳 CSV（標題需含 姓名、V、C、P，可選 入會日期、備註），可匯出 CSV、月報可複製貼到 LINE。
+  - 待使用者確認：C 評分範圍（1–5 或 0–5）、新人期 3 或 6 個月（`settings.newMonths`）。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
   - `tracker_v7`：進行中檢核資料 `{mlist:1, old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[], oldMembers:[…], newMembers:[…]}`；狀態 0=未開始 1=完成 2=進行中。**2026/07 起名單（oldMembers/newMembers）存於節點內**，網頁協調員模式可直接封存／新增，不再需要為名單異動 bump 版本；index.html 內的名單陣列僅作首次種子。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
