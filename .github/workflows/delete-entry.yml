@@ -1,0 +1,51 @@
+name: 刪除單筆資料（重複的四加一表等）
+
+# 只刪掉某節點底下的「一筆」，其餘完全不碰。
+# 不要用「從 repo 備份還原」來做這件事 —— 那是整個節點 PUT 回去，
+# 會把其他人的資料也重寫一次，有人正在編輯就被蓋掉了。
+on:
+  workflow_dispatch:
+    inputs:
+      node:
+        description: '節點'
+        required: true
+        type: choice
+        options: [bio_v1, archive_v1, logs_v1, backups_v1]
+      key:
+        description: '要刪掉的那一筆的 key'
+        required: true
+        type: string
+      confirm:
+        description: '把上面的 key 再打一次以確認'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 刪除
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: node delete-entry.js '${{ inputs.node }}' '${{ inputs.key }}'
+
+      - name: 把刪除前的整個節點存進 repo
+        if: always()
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add backups
+          if git diff --cached --quiet; then
+            echo '沒有新增檔案。'
+          else
+            git commit -m '刪除 ${{ inputs.node }}/${{ inputs.key }} 前的節點快照'
+            git push
+          fi
