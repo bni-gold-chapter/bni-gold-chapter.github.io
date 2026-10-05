@@ -173,6 +173,7 @@
 
 <main id="view"></main>
 <div class="bottombar" id="bottombar" style="display:none">
+  <button class="btn" onclick="downloadDraft()">💾 備份檔</button>
   <button class="btn" onclick="exportPDF()">📄 預覽 / PDF</button>
   <button class="btn primary" onclick="exportPPT()">📊 匯出 PPT</button>
 </div>
@@ -872,6 +873,7 @@ function connectSync(){
     SHARED = true;
     if(MKEY){
       dbRef = firebase.database().ref(NODE+'/'+MKEY);
+      let checkedDraft = false;
       dbRef.on('value', s=>{
         const v = s.val();
         if(v){
@@ -881,6 +883,17 @@ function connectSync(){
           if(!document.activeElement || !document.activeElement.matches('input,textarea')) renderForm();
           else { updateProgress(); }
           applyingRemote = false;
+        }
+        // 只在第一次拿到雲端狀態時比對，之後的推送都是自己存上去的，不要一直跳
+        if(checkedDraft) return;
+        checkedDraft = true;
+        const draft = readDraft();
+        if(!draft) return;
+        if(!v || !v.data || !Object.keys(v.data).length){
+          offerRestore('雲端上目前是空白的。', draft);     // 2026/09 那種狀況
+        }else if(draft.updatedAt > (v.updatedAt || 0) + 3000 && draftFilled(draft) > draftFilled(v)){
+          // 本機比雲端新又比較完整 → 多半是上次有改動沒傳上去（離線、關太快）
+          offerRestore('雲端上的版本比這台裝置舊。', draft);
         }
       }, err=>{ flag('連線失敗', true); });
     }
@@ -897,7 +910,6 @@ function save(){
   updateProgress();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
-    if(!SHARED || !dbRef) { flag('離線，改動未上傳', true); return; }
     const payload = {
       name: META.name || DATA.name || '',
       data: DATA,
@@ -905,8 +917,99 @@ function save(){
       updatedAt: Date.now(),
       updatedBy: ADMIN ? '導師/幹部' : (DATA.name || '本人')
     };
-    dbRef.set(payload).then(()=>flag('已儲存')).catch(()=>flag('儲存失敗', true));
+    // 先存本機，再試雲端。順序不能顛倒 —— 雲端寫不進去（離線、規則擋住、
+    // 資料庫被清空）的時候，本機這份就是唯一還留著的副本。
+    saveDraft(payload);
+    if(!SHARED || !dbRef) { flag('離線，已存這台裝置', true); return; }
+    dbRef.set(payload).then(()=>flag('已儲存')).catch(()=>flag('雲端存不進去，已存這台裝置', true));
   }, 700);
+}
+
+/* ═══════════════ 本機備份（草稿）═══════════════
+   2026/09 雲端資料庫被整個清空時，四加一表是唯一完全救不回來的東西 ——
+   它沒有本機副本、也沒有操作紀錄，新會員只能整份重填（還因此開天窗了
+   一場一對一）。追蹤表之所以救得回來就是因為有 localStorage 副本。
+   這裡補上同樣的安全網。
+
+   只在「本人用 ?m=<key> 填寫」時存，導師端一次看全部的畫面不存 ——
+   否則所有人的照片都會被塞進那台裝置的 localStorage。 */
+const DRAFT_KEY = MKEY ? ('bio_draft_' + MKEY) : null;
+let quotaWarned = false;
+
+function saveDraft(payload){
+  if(!DRAFT_KEY) return;
+  try{
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  }catch(e){
+    // 照片是 dataURL，塞爆 localStorage 配額是有可能的。只提醒一次，
+    // 而且絕不能讓它中斷存檔流程。
+    if(!quotaWarned){ quotaWarned = true; console.warn('本機備份寫入失敗（可能空間不足）：', e && e.name); }
+  }
+}
+function readDraft(){
+  if(!DRAFT_KEY) return null;
+  try{
+    const raw = localStorage.getItem(DRAFT_KEY);
+    const d = raw && JSON.parse(raw);
+    return (d && d.data && Object.keys(d.data).length) ? d : null;
+  }catch(e){ return null; }
+}
+// 沿用上面那支 filledCount（它照 allFieldIds() 數，不會把 en_* 之類的也算進去）
+const draftFilled = p => filledCount((p && p.data) || {}).n;
+
+function downloadDraft(){
+  const payload = {
+    name: META.name || DATA.name || '', data: DATA,
+    createdAt: META.createdAt || Date.now(), updatedAt: Date.now(),
+    updatedBy: ADMIN ? '導師/幹部' : (DATA.name || '本人')
+  };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'}));
+  a.download = (payload.name || '四加一表') + '-備份.json';
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+  flag('已下載備份檔');
+}
+
+/* 雲端的內容比本機舊（或整個不見了）→ 代表本機這份才是完整的。
+   絕不自動覆蓋，只跳提示讓本人自己決定。 */
+function offerRestore(reason, draft){
+  if(document.getElementById('restorebar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'restorebar';
+  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#7f1d1d;color:#fff;'+
+    'padding:12px 14px;font-size:14px;line-height:1.6;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
+  const msg = document.createElement('div');
+  msg.textContent = reason + '　這台裝置上留著一份比較完整的（' + draftFilled(draft) + ' 個欄位，'
+    + new Date(draft.updatedAt).toLocaleString('zh-TW') + '）。';
+  const row = document.createElement('div');
+  row.style.cssText = 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap';
+  const ok = document.createElement('button');
+  ok.textContent = '↩ 用這台的資料還原';
+  ok.style.cssText = 'padding:8px 14px;border:0;border-radius:6px;font-size:14px;cursor:pointer;background:#fff;color:#7f1d1d;font-weight:700';
+  ok.onclick = ()=>{ restoreDraft(draft); bar.remove(); };
+  const dl = document.createElement('button');
+  dl.textContent = '⬇ 先下載起來';
+  dl.style.cssText = 'padding:8px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;font-size:14px;cursor:pointer;background:transparent;color:#fff';
+  dl.onclick = ()=>{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(draft, null, 2)], {type:'application/json'}));
+    a.download = (draft.name || '四加一表') + '-本機備份.json'; a.click();
+  };
+  const no = document.createElement('button');
+  no.textContent = '不用';
+  no.style.cssText = 'padding:8px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;font-size:14px;cursor:pointer;background:transparent;color:#fff';
+  no.onclick = ()=>bar.remove();
+  row.appendChild(ok); row.appendChild(dl); row.appendChild(no);
+  bar.appendChild(msg); bar.appendChild(row);
+  document.body.appendChild(bar);
+}
+function restoreDraft(draft){
+  DATA = draft.data || {};
+  META = { name:draft.name||'', createdAt:draft.createdAt, updatedAt:draft.updatedAt, updatedBy:draft.updatedBy };
+  renderForm();
+  save();            // 推回雲端
+  flag('已從這台裝置還原');
 }
 
 /* ═══════════════ 表單畫面 ═══════════════ */
