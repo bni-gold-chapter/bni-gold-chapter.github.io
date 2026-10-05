@@ -166,13 +166,20 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 | 3 | 觸發一次 `update-refdata.yml` | log 不再出現「匿名登入未取得 token」　**✅ 2026/10/05 已驗證**：log 直接是 `Firebase PUT 200`，無警告 |
 | 4 | 主控台 → Realtime Database → 規則 → 貼上 `firebase-rules.json` **全部內容** → 發布 | 見下方驗收 |
 
-**第 4 步之後要驗收的四件事**（任一項失敗就立刻回滾）：
+**第 4 步之後的驗收 —— 直接觸發 `verify-rules.yml`**（任一項失敗就立刻回滾）。
+它自動檢查三件事，不必自己開無痕視窗：
 
-1. 追蹤表打得開、勾選會同步 → 左上角顯示「☁ 雲端共用 已連線」
-2. 四加一表用 `?m=<key>` 進得去、打字會存
-3. 觸發 `update-refdata.yml` 成功寫入
-4. 開無痕視窗直接打 `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/bio_v1.json`
-   → 應該回 `Permission denied`（**這就是收緊成功的證據**）
+1. **未登入者讀不到 `bio_v1`** → 個資不外洩（等同無痕視窗那一題）
+2. **匿名登入後讀得到 `tracker_v7` / `bio_v1`** → 確認沒有把自己人也鎖在外面
+3. **根節點不可寫入** → 確認 `.write:false` 真的生效，底下的保護才有意義
+
+⚠️ `verify-rules.js` **只讀不刪**，全程不碰真實資料節點。唯一的寫入是往
+`/_ruletest` 丟一個數字：規則正確時會被擋下、什麼都不留；萬一規則還沒套用
+而寫進去了，會立刻刪掉並報告「規則尚未套用」。
+
+另外再自己確認兩件（需要瀏覽器）：
+- 追蹤表打得開、勾選會同步 → 左上角顯示「☁ 雲端共用 已連線」
+- 四加一表用 `?m=<key>` 進得去、打字會存
 
 ⚠️ `firebase-rules.json` 只能有 `rules` 一個頂層鍵 —— Firebase 會拒絕其他頂層欄位，
 說明文字不要寫進那個檔案（要註解的話用 `//`，Firebase 的規則編輯器吃得下）。
@@ -211,6 +218,7 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 | 「改檢核項目/樣式」 | 直接改 `index.html`，push |
 | 「資料不見了／要還原」 | 先觸發 `check-data.yml`（唯讀）確認現況 → 看 `backups/` 裡該節點的檔案有沒有資料 → 觸發 `restore-firebase.yml`（node 選節點，confirm 再打一次同樣的名字）。**還原前先看一眼備份檔的內容**，別把空的蓋上去 |
 | 「備份一下」 | 觸發 `backup-firebase.yml`（每天 03:17 本來就會自動跑）|
+| 「規則收緊了嗎／貼完規則要驗收」 | 觸發 `verify-rules.yml`。只讀不刪，會檢查「外人讀不到、自己人讀得到、根節點鎖住了」三件事 |
 | 「某人有兩筆四加一表／刪掉某一筆」 | 觸發 `delete-entry.yml`（node 選節點，key 填那筆的 key，confirm 再打一次同樣的 key）。**不要用 `restore-firebase.yml` 做這件事** —— 那是整個節點 PUT 回去，會把其他人的資料一起重寫，有人正在編輯就被蓋掉。`delete-entry.js` 只對目標 key 發 DELETE，刪完會讀回來確認其他鍵一個都沒少 |
 | 「補封存區某人的導師／行業／出村日期」 | 改 `backups/archive_v1.json` 對應那筆的 `mentor`／`ind`／`join`／`archivedAt`（`archivedAt` 格式同 `fmtT()`：`2026/08/27 14:30:00`）→ push → 觸發 `restore-firebase.yml`（node 與 confirm 都填 `archive_v1`）。**備份檔就是可編輯的來源**，不必手動改雲端 |
 
