@@ -1,10 +1,28 @@
 {
   "rules": {
+    // 讀取：要有（匿名）登入才讀得到。擋掉直接打 REST 網址的掃描與搜尋引擎。
     ".read": "auth != null",
-    ".write": "auth != null",
 
+    // 根節點一律不可寫 —— 這一行很關鍵。
+    // Firebase 的 .write 規則「由淺往深串聯」：淺層一旦放行，深層的規則
+    // 連看都不會看。所以根節點若寫成 "auth != null"，下面每個節點的
+    // newData.exists() 保護全部形同虛設，整個資料庫照樣能被一次刪光。
+    ".write": false,
+
+    // 這四個節點：可以寫，但不可以寫成「不存在」= 不可以整個刪掉。
+    // （刪掉底下單獨一筆仍然可以，因為那時候節點本身還在。）
     "tracker_v7": { ".write": "auth != null && newData.exists()" },
     "archive_v1": { ".write": "auth != null && newData.exists()" },
-    "bio_v1":     { ".write": "auth != null && newData.exists()" }
+    "bio_v1":     { ".write": "auth != null && newData.exists()" },
+    "refdata":    { ".write": "auth != null && newData.exists()" },
+
+    // 這兩個是紀錄與站內備份，整個清掉不影響運作（真正的備份在 repo 的
+    // backups/），所以不加 newData.exists()，保留將來修剪舊紀錄的彈性。
+    "backups_v1": { ".write": "auth != null" },
+    "logs_v1":    { ".write": "auth != null" },
+
+    // 舊的資料節點，留著當歷史備份，不再寫入。
+    "tracker_v5": { ".write": false },
+    "tracker_v6": { ".write": false }
   }
 }
