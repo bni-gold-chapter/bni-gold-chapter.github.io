@@ -207,7 +207,7 @@
     <p class="mono kicker" data-rv><span class="sq"></span>&nbsp; 全鑫分會管理網站 ／ 四加一表</p>
     <h1 class="fit" data-reserve="300"><span class="ln">Member</span><span class="ln">Profile</span></h1>
     <div class="hero-foot">
-      <p>新會員的個人簡介：基本資料、事業、個人、目標、成就與人脈。填完會自動儲存，可以直接預覽成 PDF 或匯出 PPT。</p>
+      <p>新會員個人簡介，自動儲存，可匯出 PDF／PPT。</p>
       <p class="zh-sub">四加一表</p>
     </div>
   </div>
@@ -1880,11 +1880,11 @@ function renderAdminGate(){
   $('whoName').textContent = '導師 / 領導團隊';
   $('view').innerHTML = `<div class="bcard gate">
     <div class="nm">四加一表 · 管理</div>
-    <div class="meta" style="margin-bottom:14px">導師與領導團隊可以查看所有新會員的四加一表、產生填寫連結。</div>
+    <div class="meta" style="margin-bottom:14px">導師與領導團隊可查看全部、產生填寫連結。</div>
     <input type="password" id="pin" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')tryPin()">
     <button class="btn primary wide" style="margin-top:12px" onclick="tryPin()">進入</button>
   </div>
-  <div class="empty">新會員請點主辦給你的<b>專屬連結</b>，<br>就會直接進到自己的表單。</div>`;
+  <div class="empty">新會員請點自己的<b>專屬連結</b>填寫。</div>`;
 }
 function tryPin(){
   if($('pin').value.trim() === COORD_PIN){
