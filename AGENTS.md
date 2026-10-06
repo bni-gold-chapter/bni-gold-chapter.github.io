@@ -134,7 +134,7 @@ curl -s https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/tracker_v7.json
 | 新增村民 | `members`：JSON 陣列 `[{"name":"…","ind":"…","mentor":"…","join":"115.08.20","note":"…"}]` |
 | 修改村民資料 | `edits`：JSON 陣列 `[{"name":"…","field":"join","value":"115.08.27"}]` |
 | 檢視雲端資料現況 | 無（唯讀，怎麼跑都安全） |
-| 備份 Firebase 到 repo | 無（每天 03:17 自動跑一次） |
+| 備份 Firebase 到 repo | 無（每小時自動跑，有變動才 commit） |
 | 從 repo 備份還原 Firebase | `node` 選節點 + `confirm` 再打一次節點名 ⚠️ **看第 2 節第 2 條** |
 
 > ⚠️ repo 連續 60 天沒有任何 commit，GitHub 會停用排程，每週日的自動更新與每天的
