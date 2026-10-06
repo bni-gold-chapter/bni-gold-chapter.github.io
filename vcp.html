@@ -149,7 +149,9 @@
   <section id="p-input" class="hide">
     <div class="card">
       <h2>逐一輸入分數</h2>
-      <p class="mut" style="margin-top:0">改完自動存到雲端（框線變綠表示已存）。空白＝這個月沒有資料。</p>
+      <label class="set">本月完成評選人數<input type="number" id="raters" inputmode="numeric" min="1" max="99" onchange="saveRaters(this)" style="width:90px" /></label>
+      <p class="mut" style="margin-top:0">用來把 V、C、P 換成比率（每人收到的評選數＝完成人數 − 1）。不填時以本月有分數的人數估算。</p>
+      <p class="mut" style="margin-top:0">分數改完自動存到雲端（框線變綠表示已存）。空白＝這個月沒有資料。</p>
       <div class="inhead"><div>會員</div><div>V</div><div>C</div><div>P</div></div>
       <div id="inlist"></div>
       <div class="btnrow">
@@ -199,12 +201,12 @@
     </div>
     <div class="card">
       <h2>參數（全分會共用）</h2>
-      <label class="set">新人期（入會未滿幾個月）<input type="number" id="s_newMonths" min="0" max="24" /></label>
-      <label class="set">優先關懷：總分排名後 %<input type="number" id="s_carePct" min="0" max="100" /></label>
-      <label class="set">持續觀察：總分排名後 %（含上一級）<input type="number" id="s_watchPct" min="0" max="100" /></label>
-      <label class="set">標竿：總分排名前 %<input type="number" id="s_starPct" min="0" max="100" /></label>
-      <label class="set">下滑警示：比上月少幾 %<input type="number" id="s_dropPct" min="0" max="100" /></label>
-      <label class="set">標竿需紅綠燈 ≥<input type="number" id="s_starLight" min="0" max="100" /></label>
+      <label class="set">新人期：最近會齡 ≤ 幾個月<input type="number" id="s_newMonths" min="0" max="24" /></label>
+      <label class="set">偏低：單項在分會後 %<input type="number" id="s_lowPct" min="0" max="100" /></label>
+      <label class="set">優先關懷：綜合指數後 %<input type="number" id="s_idxCarePct" min="0" max="100" /></label>
+      <label class="set">標竿：綜合指數前 %<input type="number" id="s_starPct" min="0" max="100" /></label>
+      <label class="set">下滑警示：指數比上回降幾點<input type="number" id="s_dropPts" min="0" max="100" /></label>
+      <label class="set">標竿需紅綠燈 ≥（綠燈 70）<input type="number" id="s_starLight" min="0" max="100" /></label>
       <div class="btnrow"><button class="primary" onclick="saveSettings()">儲存參數</button></div>
     </div>
     <div class="card">
@@ -227,9 +229,13 @@
 <script>
 /* ====== VCP 互評（vcp_v1）======
    資料節點：
-     vcp_v1/months/<YYYY-MM>/scores/<姓名> = {v,c,p,note,at,by}
+     vcp_v1/months/<YYYY-MM>/scores/<姓名> = {v,c,p,n?,note,at,by}   n＝此人收到的評選數（選填，覆寫預設）
+     vcp_v1/months/<YYYY-MM>/raters = 本月完成評選人數
      vcp_v1/members/<姓名> = {join:'YYYY-MM'}
-     vcp_v1/settings = {newMonths,carePct,watchPct,starPct,dropPct,starLight}
+     vcp_v1/settings = {newMonths,lowPct,idxCarePct,starPct,dropPts,starLight}
+   計算方式照 bnigoldchaptertc 儲存庫 vcp/VCP互評規則.md：
+     V 認識率＝V÷收到評選數、C 平均＝C÷收到評選數（1–5）、P 往來率＝P÷收到評選數，
+     綜合指數＝(V 認識率＋C 平均÷5＋P 往來率)÷3×100；單項在分會後 25% 為偏低。
    紅綠燈數據沿用 refdata（update-refdata.yml 每週自動更新）。 */
 var COORD_PIN = '8888';
 var FIREBASE_CONFIG = {
@@ -241,7 +247,8 @@ var FIREBASE_CONFIG = {
   messagingSenderId: "322793389801",
   appId: "1:322793389801:web:080a432df275e88783fa78"
 };
-var DEFAULT_SETTINGS = { newMonths:3, carePct:15, watchPct:35, starPct:20, dropPct:10, starLight:70 };
+var DEFAULT_SETTINGS = { newMonths:3, lowPct:25, idxCarePct:10, starPct:20, dropPts:5, starLight:70 };
+var SETTING_KEYS = ['newMonths','lowPct','idxCarePct','starPct','dropPts','starLight'];
 var CATS = {
   care:  { label:'優先關懷', cls:'c-care',  icon:'🔴' },
   watch: { label:'持續觀察', cls:'c-watch', icon:'🟡' },
@@ -250,11 +257,12 @@ var CATS = {
   star:  { label:'標竿',     cls:'c-star',  icon:'🟢' }
 };
 var CAT_ORDER = ['care','watch','new','ok','star'];
-var DIM = { v:'V 可見度', c:'C 信任度', p:'P 獲利度' };
-var ADVICE = {
-  v:'可見度偏低：安排 8 分鐘分享或主題簡報、增加一對一，讓夥伴更了解他的專業與理想客戶。',
-  c:'信任度偏低：留意出席與準時、引薦後的回報與服務品質，由導師或支持董顧協助一對一深談。',
-  p:'獲利度偏低：鼓勵主動給出引薦、回報成交金額，並請合作夥伴群組協助媒合。'
+var DIM = { v:'V 能見度', c:'C 可信度', p:'P 成果' };
+var RATE = { v:'V 認識率', c:'C 平均信任分', p:'P 往來率' };
+var ADVICE = {   // 照 vcp/VCP互評規則.md「五、建議怎麼產生」
+  v:'V 偏低：排 8 分鐘簡報、更新自我介紹、約不熟的夥伴一對一。',
+  c:'C 偏低：穩定出席、完成培訓、分享案例與見證。',
+  p:'P 偏低：提出具體引薦需求、與 Power Team 互推。'
 };
 
 var db = null, VCP = { months:{}, members:{}, settings:{} }, REF = {}, REFMETA = {};
@@ -341,60 +349,89 @@ function allNames(){
 function totalOf(r){ if(!r) return null; var v=numOrNull(r.v),c=numOrNull(r.c),p=numOrNull(r.p); if(v==null&&c==null&&p==null) return null; return (v||0)+(c||0)+(p||0); }
 function prevMonth(m){ var ks=Object.keys(VCP.months||{}).sort(), i=ks.indexOf(m); return i>0?ks[i-1]:''; }
 
+function ratersOf(m){ return numOrNull(((VCP.months||{})[m]||{}).raters); }
+// 一個月的比率與綜合指數：收到評選數＝個人 n，否則（完成人數 − 1），否則（有分數人數 − 1）
+function ratesOf(m){
+  var sc=scoresOf(m), names=Object.keys(sc).filter(function(n){ return totalOf(sc[n])!=null; });
+  var R=ratersOf(m), base=R ? R-1 : names.length-1, out={};
+  names.forEach(function(n){
+    var r=sc[n], k=numOrNull(r.n)||base;
+    if(!(k>0)) return;
+    var v=(numOrNull(r.v)||0)/k, c=(numOrNull(r.c)||0)/k, p=(numOrNull(r.p)||0)/k;
+    out[n]={ v:v, c:c, p:p, k:k, idx:(v + c/5 + p)/3*100 };
+  });
+  return out;
+}
+// 百分等級：比他低的人數 ÷（人數 − 1）× 100（同分同等級）
+function pctRank(list, key){
+  var vals=list.map(function(x){ return x[key]; }), N=vals.length, out=[];
+  vals.forEach(function(x,i){ var lower=0; vals.forEach(function(y){ if(y<x) lower++; }); out[i]= N>1 ? lower/(N-1)*100 : 50; });
+  return out;
+}
 function analyze(m){
   var S=settings(), sc=scoresOf(m), names=allNames(), rows=[], scored=[];
-  var sum={v:0,c:0,p:0}, cnt={v:0,c:0,p:0};
+  var rates=ratesOf(m), pm=prevMonth(m), prates=pm?ratesOf(pm):{}, psc=pm?scoresOf(pm):{};
   names.forEach(function(n){
-    var r=sc[n], t=totalOf(r);
+    var r=sc[n], t=totalOf(r), q=rates[n];
     var join=(VCP.members[n]||{}).join||'';
     var age = join ? monthsBetween(join,m) : null;
-    var row={ name:n, r:r||null, total:t, join:join, age:age, light:(REF[n]||{}).light, ref:REF[n]||null };
-    if(t!=null){ scored.push(row); ['v','c','p'].forEach(function(d){ var x=numOrNull(r[d]); if(x!=null){ sum[d]+=x; cnt[d]++; } }); }
+    var row={ name:n, r:r||null, total:(t!=null&&q)?t:null, rate:q||null, idx:q?q.idx:null, join:join, age:age, light:(REF[n]||{}).light, ref:REF[n]||null };
+    if(row.total!=null) scored.push(row);
     rows.push(row);
   });
-  var avg={}; ['v','c','p'].forEach(function(d){ avg[d]=cnt[d]?sum[d]/cnt[d]:0; });
-  scored.sort(function(a,b){ return a.total-b.total; });
-  var N=scored.length;
-  scored.forEach(function(row,i){ row.rankLow=i; row.pctFromBottom = N>1 ? (i/(N-1))*100 : 50; row.rank=N-i; });
-  var pm=prevMonth(m), psc=pm?scoresOf(pm):{};
+  var N=scored.length, avg={v:0,c:0,p:0,idx:0};
+  scored.forEach(function(row){ ['v','c','p'].forEach(function(d){ avg[d]+=row.rate[d]/N; }); avg.idx+=row.idx/N; });
+  var flat=scored.map(function(row){ return { v:row.rate.v, c:row.rate.c, p:row.rate.p, idx:row.idx }; });
+  var pv=pctRank(flat,'v'), pc=pctRank(flat,'c'), pp=pctRank(flat,'p'), pi=pctRank(flat,'idx');
+  scored.forEach(function(row,i){
+    row.pct={ v:pv[i], c:pc[i], p:pp[i], idx:pi[i] };
+    row.lows=['v','c','p'].filter(function(d){ return row.pct[d] < S.lowPct; });
+    row.weak=row.lows.slice().sort(function(a,b){ return row.pct[a]-row.pct[b]; })[0]||null;
+  });
+  var byIdx=scored.slice().sort(function(a,b){ return b.idx-a.idx; });
+  byIdx.forEach(function(row,i){ row.rank=i+1; });
   rows.forEach(function(row){
-    var pt=totalOf(psc[row.name]); row.prev=pt;
-    row.delta=(row.total!=null&&pt!=null)?row.total-pt:null;
-    row.drop = row.delta!=null && pt>0 && (-row.delta/pt*100)>=S.dropPct;
-    // 最弱面向：與分會平均相比的比例
-    if(row.r && row.total!=null){
-      var worst=null, wr=Infinity; row.ratio={};
-      ['v','c','p'].forEach(function(d){ var x=numOrNull(row.r[d]); if(x==null||!avg[d]) return; var q=x/avg[d]; row.ratio[d]=q; if(q<wr){ wr=q; worst=d; } });
-      row.weak = (wr<0.9)?worst:null;
-    }
+    var pq=prates[row.name]; row.prev=pq?pq.idx:null; row.prevTotal=totalOf(psc[row.name]);
+    row.delta=(row.idx!=null&&row.prev!=null)?row.idx-row.prev:null;
+    row.drop = row.delta!=null && -row.delta >= S.dropPts;
     row.cat = classify(row,S);
     row.reasons = reasons(row,S);
   });
-  return { rows:rows, scored:scored, avg:avg, N:N, prev:pm };
+  return { rows:rows, scored:scored, avg:avg, N:N, prev:pm, raters:ratersOf(m) };
 }
 function classify(row,S){
   if(row.total==null) return null;
-  if(row.age!=null && row.age<S.newMonths) return 'new';
-  var red = row.light!=null && row.light<50;
-  if(row.pctFromBottom < S.carePct || (red && row.pctFromBottom < S.watchPct)) return 'care';
-  if(row.pctFromBottom < S.watchPct || row.drop) return 'watch';
-  if(row.pctFromBottom >= 100-S.starPct && (row.light==null || row.light>=S.starLight)) return 'star';
+  if(row.age!=null && row.age+1<=S.newMonths) return 'new';
+  if(row.lows.length>=2 || row.pct.idx < S.idxCarePct) return 'care';
+  if(row.lows.length===1 || row.drop) return 'watch';
+  if(row.pct.idx >= 100-S.starPct && row.light!=null && row.light>=S.starLight) return 'star';
   return 'ok';
 }
+function f1(x){ return x==null?'–':(Math.round(x*10)/10).toFixed(1); }
+function pc0(x){ return Math.round(x*100)+'%'; }
 function reasons(row,S){
   var out=[];
   if(row.total==null) return out;
-  if(row.age!=null && row.age<S.newMonths) out.push('入會第 '+(row.age+1)+' 個月，屬新人期');
-  out.push('總分排名第 '+row.rank+' 名');
+  if(row.age!=null && row.age+1<=S.newMonths) out.push('最近會齡第 '+(row.age+1)+' 個月，屬新人期（不列入關懷）');
+  out.push('綜合指數 '+f1(row.idx)+'，分會第 '+row.rank+' 名（百分等級 '+Math.round(row.pct.idx)+'）');
+  if(row.pct.idx < S.idxCarePct) out.push('綜合指數在分會後 '+S.idxCarePct+'%');
+  row.lows.forEach(function(d){ out.push(RATE[d]+'在分會後 '+S.lowPct+'%（偏低）'); });
+  if(row.drop) out.push('綜合指數比上回下降 '+f1(-row.delta)+' 點');
   if(row.light!=null && row.light<50) out.push('紅綠燈為紅燈（'+row.light+'）');
-  if(row.drop) out.push('比上月下滑 '+(-row.delta)+' 分');
-  if(row.weak) out.push(DIM[row.weak]+' 明顯低於分會平均');
   return out;
 }
+function S_low(){ return settings().lowPct; }
 function advice(row){
   var a=[];
   if(row.cat==='new') a.push('新人期：由導師每週關心一次，協助完成出村檢核與第一次 8 分鐘分享。');
-  if(row.weak) a.push(ADVICE[row.weak]);
+  (row.lows||[]).forEach(function(d){ a.push(ADVICE[d]); });
+  if(row.pct){
+    if(row.pct.c>=75 && row.pct.p<S_low()) a.push('C 高、P 低：受信任但少被轉介，關鍵是「要介紹誰給你」。');
+    if(row.pct.v>=75 && row.pct.c<S_low()) a.push('V 高、C 低：大家認識，但對專業把握不足。');
+    if(row.light!=null && row.light>=70 && row.pct.idx<S_low()) a.push('紅綠燈綠燈但 VCP 偏低：活動量夠但關係沒建立，一對一改找不熟的人。');
+    if((row.light==null || row.light<50) && row.pct.idx>=50) a.push('VCP 不錯但紅綠燈偏低：檢查出席與 PALMS 是否確實登錄。');
+    if(row.drop) a.push('比上回下降：了解近況。');
+  }
   if(row.ref){
     if(row.ref.ref>0) a.push('近 6 個月引薦仍缺 '+row.ref.ref+' 次。');
     if(row.ref.o2o>0) a.push('近 6 個月一對一仍缺 '+row.ref.o2o+' 次。');
@@ -433,7 +470,7 @@ function refreshAll(){
 function renderHome(){
   var A=analyze(curMonth), counts={};
   A.rows.forEach(function(r){ if(r.cat) counts[r.cat]=(counts[r.cat]||0)+1; });
-  $('homeMeta').textContent='（'+A.N+' 人有分數）';
+  $('homeMeta').textContent='（'+A.N+' 人有分數'+(A.raters?'，'+A.raters+' 人完成評選':'')+'，平均指數 '+f1(A.avg.idx)+'）';
   $('stats').innerHTML=CAT_ORDER.map(function(k){
     return '<div class="stat '+CATS[k].cls+(curFilter===k?' sel':'')+'" onclick="filt(\''+k+'\')"><b>'+(counts[k]||0)+'</b><span>'+CATS[k].label+'</span></div>';
   }).join('');
@@ -441,16 +478,16 @@ function renderHome(){
   $('missingBox').innerHTML = (loaded && A.N && missing.length) ? '<div class="warnbox">本月缺資料（'+missing.length+'）：'+missing.map(function(r){return esc(r.name);}).join('、')+'</div>' : '';
   var q=$('q').value.trim();
   var rows=A.rows.filter(function(r){ return r.total!=null && (!curFilter||r.cat===curFilter) && (!q||r.name.indexOf(q)>=0); });
-  rows.sort(function(a,b){ return CAT_ORDER.indexOf(a.cat)-CAT_ORDER.indexOf(b.cat) || a.total-b.total; });
+  rows.sort(function(a,b){ return CAT_ORDER.indexOf(a.cat)-CAT_ORDER.indexOf(b.cat) || a.idx-b.idx; });
   if(!loaded){ $('list').innerHTML='<p class="mut">讀取中…</p>'; return; }
   if(!A.N){ $('list').innerHTML='<p class="mut">這個月還沒有分數。到「✏️ 輸入」逐一填寫，或整批貼上 CSV。</p>'; return; }
   $('list').innerHTML=rows.map(function(r){
-    var c=CATS[r.cat], d=r.delta==null?'':(r.delta>0?'<span class="delta-up">▲'+r.delta+'</span>':r.delta<0?'<span class="delta-dn">▼'+(-r.delta)+'</span>':'<span class="mut">－</span>');
+    var c=CATS[r.cat], d=r.delta==null?'':(r.delta>0?'<span class="delta-up">▲'+f1(r.delta)+'</span>':r.delta<0?'<span class="delta-dn">▼'+f1(-r.delta)+'</span>':'<span class="mut">－</span>');
     return '<div class="row" onclick="openPerson(\''+esc(r.name)+'\')">'+
       '<span class="tag '+c.cls+'">'+c.label+'</span>'+
       '<div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="vcp">V '+fmt(r.r.v)+' · C '+fmt(r.r.c)+' · P '+fmt(r.r.p)+'</div></div>'+
       '<span class="light '+lightClass(r.light)+'">'+lightLabel(r.light)+'</span>'+
-      '<div style="text-align:right;min-width:3.2em"><div class="num">'+r.total+'</div><div style="font-size:11px">'+d+'</div></div></div>';
+      '<div style="text-align:right;min-width:3.2em"><div class="num">'+f1(r.idx)+'</div><div style="font-size:11px">'+d+'</div></div></div>';
   }).join('') || '<p class="mut">沒有符合的會員</p>';
 }
 function fmt(x){ return x==null||x===''?'–':x; }
@@ -459,6 +496,7 @@ function openPerson(n){ go('person'); $('who').value=n; renderPerson(); }
 
 function renderInput(){
   var sc=scoresOf(curMonth), names=allNames();
+  var re=$('raters'); if(document.activeElement!==re){ var R=ratersOf(curMonth); re.value=R==null?'':R; }
   if(document.activeElement && document.activeElement.closest && document.activeElement.closest('#inlist')) return; // 正在輸入時不重畫
   $('inlist').innerHTML=names.map(function(n){
     var r=sc[n]||{}, j=(VCP.members[n]||{}).join;
@@ -478,6 +516,10 @@ function saveScore(inp){
   var cur=scoresOf(curMonth)[n]||{};
   o.note=cur.note||''; o.at=new Date().toISOString(); o.by=getUser();
   write('months/'+curMonth+'/scores/'+n, o).then(function(){ row.classList.add('saved'); toast('已存 '+n); });
+}
+function saveRaters(el){
+  var n=numOrNull(el.value);
+  write('months/'+curMonth+'/raters', n&&n>0?n:null).then(function(){ toast(n?'本月完成評選 '+n+' 人':'已清除完成人數'); });
 }
 function addMember(){
   var n=$('addName').value.trim(); if(!n) return;
@@ -543,10 +585,10 @@ function commitCsv(){
 }
 function exportCsv(){
   var A=analyze(curMonth);
-  var lines=[['姓名','V','C','P','總分','分類','排名','上月總分','入會','紅綠燈','備註'].join(',')];
+  var lines=[['姓名','V','C','P','總分','V認識率','C平均','P往來率','綜合指數','分類','指數排名','上回指數','入會','紅綠燈','備註'].join(',')];
   A.rows.forEach(function(r){
     if(r.total==null) return;
-    lines.push([r.name,fmt(r.r.v),fmt(r.r.c),fmt(r.r.p),r.total,CATS[r.cat].label,r.rank,r.prev==null?'':r.prev,r.join,r.light==null?'':r.light,'"'+String(r.r.note||'').replace(/"/g,'""')+'"'].join(','));
+    lines.push([r.name,fmt(r.r.v),fmt(r.r.c),fmt(r.r.p),r.total,pc0(r.rate.v),r.rate.c.toFixed(2),pc0(r.rate.p),f1(r.idx),CATS[r.cat].label,r.rank,r.prev==null?'':f1(r.prev),r.join,r.light==null?'':r.light,'"'+String(r.r.note||'').replace(/"/g,'""')+'"'].join(','));
   });
   var blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VCP-'+curMonth+'.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -560,13 +602,14 @@ function renderPerson(){
   var A=analyze(curMonth), row=null;
   A.rows.forEach(function(r){ if(r.name===sel) row=r; });
   if(!row){ $('personBox').innerHTML=''; return; }
-  var ms=Object.keys(VCP.months||{}).sort(), hist=ms.map(function(m){ return {m:m,t:totalOf(scoresOf(m)[sel])}; }).filter(function(h){return h.t!=null;});
+  var ms=Object.keys(VCP.months||{}).sort(), hist=ms.map(function(m){ var q=ratesOf(m)[sel]; return {m:m,t:q?Math.round(q.idx*10)/10:null}; }).filter(function(h){return h.t!=null;});
   var mx=Math.max.apply(null,hist.map(function(h){return h.t;}).concat([1]));
   var h='<div class="card"><div class="hrow"><h2 style="margin:0">'+esc(sel)+'</h2>'+(row.cat?'<span class="tag '+CATS[row.cat].cls+'">'+CATS[row.cat].label+'</span>':'<span class="tag c-none">本月無資料</span>')+'</div>';
   if(row.total!=null){
-    h+='<dl class="kv" style="margin-top:12px"><dt>總分</dt><dd class="num">'+row.total+'（第 '+row.rank+' / '+A.N+' 名）'+(row.delta!=null?'　上月 '+row.prev:'')+'</dd>'+
-      ['v','c','p'].map(function(d){ var x=numOrNull(row.r[d]), q=row.ratio&&row.ratio[d]; return '<dt>'+DIM[d]+'</dt><dd><span class="num">'+fmt(x)+'</span> <span class="mut">／平均 '+A.avg[d].toFixed(1)+'</span><div class="dimbar"><div style="width:'+Math.min(100,(q||0)*50)+'%;'+(q!=null&&q<0.9?'background:var(--red)':'')+'"></div></div></dd>'; }).join('')+
-      '</dl>';
+    var showRate=function(d,x){ return d==='c'? x.toFixed(2) : pc0(x); };
+    h+='<dl class="kv" style="margin-top:12px"><dt>綜合指數</dt><dd class="num">'+f1(row.idx)+'（第 '+row.rank+' / '+A.N+' 名，分會平均 '+f1(A.avg.idx)+'）'+(row.prev!=null?'　上回 '+f1(row.prev):'')+'</dd>'+
+      ['v','c','p'].map(function(d){ var low=row.lows.indexOf(d)>=0; return '<dt>'+RATE[d]+'</dt><dd><span class="num">'+showRate(d,row.rate[d])+'</span> <span class="mut">／平均 '+showRate(d,A.avg[d])+'・原始 '+fmt(row.r[d])+'</span><div class="dimbar"><div style="width:'+Math.round(row.pct[d])+'%;'+(low?'background:var(--red)':'')+'"></div></div></dd>'; }).join('')+
+      '<dt>V+C+P 總分</dt><dd class="num">'+row.total+'（收到評選 '+row.rate.k+'）</dd></dl>';
   }
   h+='<dl class="kv" style="margin-top:12px"><dt>紅綠燈</dt><dd><span class="light '+lightClass(row.light)+'">'+lightLabel(row.light)+'</span></dd>'+
     '<dt>入會</dt><dd>'+(row.join?row.join+'（第 '+(row.age+1)+' 個月）':'<span class="mut">未填，請到 ⚙️ 規則 補</span>')+'</dd>';
@@ -577,7 +620,7 @@ function renderPerson(){
       '<h2 style="margin-top:14px">建議方向</h2><ul style="margin:0;padding-left:20px">'+advice(row).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
   }
   if(hist.length){
-    h+='<div class="card"><h2>歷月總分</h2><div class="detail-bars">'+hist.map(function(x){ return '<div class="b"><span class="num" style="color:var(--txt)">'+x.t+'</span><div style="height:'+(x.t/mx*90)+'%"></div>'+x.m.slice(2)+'</div>'; }).join('')+'</div></div>';
+    h+='<div class="card"><h2>歷月綜合指數</h2><div class="detail-bars">'+hist.map(function(x){ return '<div class="b"><span class="num" style="color:var(--txt)">'+x.t+'</span><div style="height:'+(x.t/mx*90)+'%"></div>'+x.m.slice(2)+'</div>'; }).join('')+'</div></div>';
   }
   var note=(scoresOf(curMonth)[sel]||{}).note||'';
   if(row.total!=null) h+='<div class="card"><h2>本月備註</h2><textarea id="pnote" style="min-height:80px;font-family:inherit;font-size:15px">'+esc(note)+'</textarea><div class="btnrow"><button onclick="saveNote(\''+esc(sel)+'\')">儲存備註</button></div></div>';
@@ -590,15 +633,16 @@ function buildReport(){
   var A=analyze(curMonth), y=curMonth.split('-');
   var L=['【全鑫白金分會 VCP 互評月報】'+y[0]+' 年 '+Number(y[1])+' 月',''];
   if(!A.N){ L.push('本月尚無資料。'); return L.join('\n'); }
-  L.push('有效互評：'+A.N+' 人　平均 V '+A.avg.v.toFixed(1)+'／C '+A.avg.c.toFixed(1)+'／P '+A.avg.p.toFixed(1));
+  L.push('（會員委員會內部使用，請勿公開個人排名或最低名單）');
+  L.push('有效互評：'+A.N+' 人'+(A.raters?'（完成評選 '+A.raters+' 人）':'')+'　平均 V 認識率 '+pc0(A.avg.v)+'／C 平均 '+A.avg.c.toFixed(2)+'／P 往來率 '+pc0(A.avg.p)+'／綜合指數 '+f1(A.avg.idx));
   if(A.prev) L.push('對照月份：'+A.prev);
   CAT_ORDER.forEach(function(k){
-    var rs=A.rows.filter(function(r){return r.cat===k;}).sort(function(a,b){return a.total-b.total;});
+    var rs=A.rows.filter(function(r){return r.cat===k;}).sort(function(a,b){return a.idx-b.idx;});
     L.push(''); L.push(CATS[k].icon+' '+CATS[k].label+'（'+rs.length+'）');
     if(k==='ok'){ if(rs.length) L.push(rs.map(function(r){return r.name;}).join('、')); return; }
     rs.forEach(function(r){
       var ad=advice(r);
-      L.push('・'+r.name+' '+r.total+' 分'+(r.delta!=null?'（'+(r.delta>=0?'+':'')+r.delta+'）':'')+(r.weak&&k!=='star'?'｜'+DIM[r.weak]+'偏低':''));
+      L.push('・'+r.name+' 指數 '+f1(r.idx)+(r.delta!=null?'（'+(r.delta>=0?'+':'')+f1(r.delta)+'）':'')+(r.lows.length&&k!=='star'?'｜'+r.lows.map(function(d){return DIM[d];}).join('、')+'偏低':''));
       if(k!=='star' && ad.length) L.push('　→ '+ad[0]);
     });
   });
@@ -618,15 +662,16 @@ function shareReport(){ var t=buildReport(); if(navigator.share) navigator.share
 /* 規則 */
 function renderRules(){
   var S=settings();
-  ['newMonths','carePct','watchPct','starPct','dropPct','starLight'].forEach(function(k){ var el=$('s_'+k); if(document.activeElement!==el) el.value=S[k]; });
+  SETTING_KEYS.forEach(function(k){ var el=$('s_'+k); if(document.activeElement!==el) el.value=S[k]; });
   $('rulesText').innerHTML=
-    '<p style="margin-top:0">總分 = V + C + P。每月依總分在有分數的會員中排名，依序判斷：</p><ol style="padding-left:20px;margin:0">'+
-    '<li><b>新人陪伴</b>：入會未滿 '+S.newMonths+' 個月（不論分數，避免新人被列為落後）</li>'+
-    '<li><b>優先關懷</b>：總分在後 '+S.carePct+'%；或在後 '+S.watchPct+'% 且紅綠燈為紅燈（&lt;50）</li>'+
-    '<li><b>持續觀察</b>：總分在後 '+S.watchPct+'%；或比上月下滑 '+S.dropPct+'% 以上</li>'+
-    '<li><b>標竿</b>：總分在前 '+S.starPct+'%，且紅綠燈 ≥ '+S.starLight+'</li>'+
+    '<p style="margin-top:0">照分會《VCP 互評規則》：V 認識率＝V÷收到評選數、C 平均信任分＝C÷收到評選數（1–5）、P 往來率＝P÷收到評選數；'+
+    '<b>綜合指數</b>＝(V 認識率＋C 平均÷5＋P 往來率)÷3×100，三項各佔三分之一。以分會內百分等級判斷，單項在後 '+S.lowPct+'% 為「偏低」，依序：</p><ol style="padding-left:20px;margin:0">'+
+    '<li><b>新人陪伴</b>：最近會齡 ≤ '+S.newMonths+' 個月（含重新入會），指派導師，不列入關懷</li>'+
+    '<li><b>優先關懷</b>：兩項以上偏低，或綜合指數在後 '+S.idxCarePct+'%</li>'+
+    '<li><b>持續觀察</b>：一項偏低，或綜合指數比上回降 ≥ '+S.dropPts+' 點</li>'+
+    '<li><b>標竿</b>：綜合指數前 '+S.starPct+'% 且紅綠燈綠燈（≥ '+S.starLight+'）</li>'+
     '<li><b>穩定</b>：其餘</li></ol>'+
-    '<p>「偏低面向」＝該項分數低於分會平均的 90%，取最低的一項給建議。紅綠燈與近 6 個月缺口取自分會紅綠燈檢視表（'+(REFMETA.updatedAt?'最後更新 '+esc(REFMETA.updatedAt):'每週自動更新')+'）。</p>';
+    '<p>分數是分會內相對比較，是關懷與輔導的工具，不是考核；請勿公開個人排名或最低名單。紅綠燈與近 6 個月缺口取自分會紅綠燈檢視表（'+(REFMETA.updatedAt?'最後更新 '+esc(REFMETA.updatedAt):'每週自動更新')+'）。</p>';
   var names=allNames();
   if(document.activeElement && document.activeElement.closest && document.activeElement.closest('#joinList')) return;
   $('joinList').innerHTML=names.map(function(n){
@@ -635,7 +680,7 @@ function renderRules(){
   }).join('');
 }
 function saveSettings(){
-  var o={}; ['newMonths','carePct','watchPct','starPct','dropPct','starLight'].forEach(function(k){ o[k]=Number($('s_'+k).value); });
+  var o={}; SETTING_KEYS.forEach(function(k){ o[k]=Number($('s_'+k).value); });
   write('settings',o).then(function(){ toast('參數已儲存'); });
 }
 function saveJoin(el){
