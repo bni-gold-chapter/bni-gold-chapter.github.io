@@ -339,7 +339,7 @@
     <p class="mono kicker" data-rv><span class="sq"></span>&nbsp; 全鑫分會管理網站 ／ 新會員出村檢核</p>
     <h1 class="fit" data-reserve="300"><span class="ln">Onboarding</span><span class="ln">Tracker</span></h1>
     <div class="hero-foot">
-      <p>新會員從入會到出村的 17 項檢核，所有導師即時共用同一份資料。點一下格子就能切換完成狀態，燈號與引薦、來賓、成交數字自動帶入。</p>
+      <p>17 項出村檢核，導師即時共用同一份資料。</p>
       <p class="zh-sub">新會員出村檢核</p>
     </div>
   </div>
@@ -376,7 +376,7 @@
       <span><span class="dot" style="background:var(--red)"></span>紅燈 &lt;50</span>
       <span id="refstamp"></span>
     </div>
-    <p class="hint">操作：點格子循環切換 <b>未開始 → 完成 → 進行中</b>；「＋備註」可直接打字填日期（如 6/26、7/30前）。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</p>
+    <p class="hint">點格子切換 <b>未開始 → 完成 → 進行中</b>；「＋備註」可填日期。</p>
     <div id="view"></div>
   </div></section>
 </main>
@@ -409,7 +409,7 @@
     <div class="modalhead">
       <b>操作修改紀錄</b>
       <button type="button" class="btn small act" onclick="closeLog()">✕ 關閉</button>
-      <span class="loghint">記錄狀態切換與備註修改（含時間 / 操作者），所有導師即時共用</span>
+      <span class="loghint">狀態與備註的修改紀錄</span>
     </div>
     <div id="loglist" class="loglist"></div>
   </div>
@@ -420,7 +420,7 @@
     <div class="modalhead">
       <b>請輸入操作者姓名</b>
       <button type="button" class="btn small act" id="userclose" onclick="cancelUser()">✕ 關閉</button>
-      <span class="loghint">所有勾選與備註都會記錄是誰改的；此裝置會自動記住，之後不再詢問</span>
+      <span class="loghint">記錄修改者，此裝置會記住</span>
     </div>
     <div class="userrow">
       <input id="userinput" class="linkbox" placeholder="你的名字（例：林淙仁）" onkeydown="if(event.key==='Enter')confirmUser()">
@@ -434,7 +434,7 @@
     <div class="modalhead">
       <b>村民共用檢視連結</b>
       <button type="button" class="btn small act" onclick="closeLinks()">✕ 關閉</button>
-      <span class="loghint">傳到分會群組：所有村民都能看到全部新會員的檢核進度，唯讀無法編輯</span>
+      <span class="loghint">傳到群組，村民可唯讀查看進度</span>
     </div>
     <div id="linklist" class="loglist"></div>
   </div>
@@ -782,7 +782,7 @@ function graduate(ver,idx){
   const items=ver==='old'?OLD_ITEMS:NEW_ITEMS;
   const m=members[idx]; if(!m) return;
   let done=0; DATA[ver].forEach(r=>{ if(r[idx]&&r[idx][0]===1) done++; });
-  if(!confirm('確定將「'+m.name+'」封存出村？\n完成度 '+done+'/'+items.length+'。封存後從追蹤名單移除，完整檢核紀錄保存在「📦 已出村封存」。')) return;
+  if(!confirm('確定將「'+m.name+'」封存出村？\n完成度 '+done+'/'+items.length+'。封存後移到「📦 已出村封存」。')) return;
   backupCloud('封存出村：'+m.name);
   const snap={name:m.name,ind:m.ind||'',npc:m.npc||'',mentor:m.mentor||'',light:(m.light==null?null:m.light),join:m.join||'',miss:m.miss||'',note:notesArr(ver)[idx]||'',ver:ver,done:done,total:items.length,items:DATA[ver].map(r=>r[idx]||[0,'']),archivedAt:fmtT(Date.now())};
   ARCHIVE=[...(ARCHIVE||[]),snap];
@@ -832,7 +832,7 @@ function openLog(){ logOpen=true; document.getElementById('logmodal').style.disp
 function closeLog(){ logOpen=false; document.getElementById('logmodal').style.display='none'; }
 function renderLog(){
   const el=document.getElementById('loglist'); if(!el) return;
-  if(!LOG.length){ el.innerHTML='<div class="logempty">尚無操作紀錄。<br>每次切換狀態（完成 / 進行中 / 未開始）或修改備註，都會自動記錄在這裡，並即時同步給所有導師。</div>'; return; }
+  if(!LOG.length){ el.innerHTML='<div class="logempty">尚無操作紀錄。</div>'; return; }
   el.innerHTML=LOG.map(e=>{
     const isNote=/^備註/.test(e.act)||e.act==='清除備註';
     const cls=e.ver==='系統'?'a-sys':(isNote?'a-note':(ACTCLASS[e.act]||''));
@@ -957,7 +957,7 @@ function openLinks(){
   const url=base+'?view=all';
   document.getElementById('linklist').innerHTML=
     `<div class="logrow"><div class="logt">全部村民・總表</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button type="button" class="btn small act" onclick="copyLink(this,'${url}')">複製</button></div></div>`
-    +`<div class="logempty" style="padding:16px 0 4px;text-align:left;font-size:13.5px;line-height:1.8">把這條連結傳到分會群組，所有村民都能即時看到<b>全部新會員</b>的總覽（含燈號與引薦／來賓／成交缺口），<b>依完成度由高到低排序</b>；<b>點任一人</b>即可展開他的完整逐項檢核。開啟後為<b>唯讀</b>，村民只能看、不能改。</div>`;
+    +`<div class="logempty" style="padding:16px 0 4px;text-align:left;font-size:13.5px;line-height:1.8">傳到分會群組，村民可看<b>全部新會員</b>的進度（<b>唯讀</b>）。</div>`;
   document.getElementById('linkmodal').style.display='flex';
 }
 function closeLinks(){ document.getElementById('linkmodal').style.display='none'; }
@@ -988,7 +988,7 @@ function renderOverview(editable){
   const chip=(f,label,n)=>`<button type="button" class="chip${FILTER===f?' on':''}" onclick="setFilter('${f}')">${label}<b>${n}</b></button>`;
   const head=`<div class="allhead">
     <div><h3 class="allh-title">全體新會員 出村進度</h3>
-    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div></div>
+    <div class="allh-sub">共 ${rows.length} 位，依完成度排序　·　${editable?'點姓名勾選':'點姓名看內容'}${stamp}</div></div>
     <div class="chips">${chip('all','全部',rows.length)}${chip('ready','可出村',nReady)}${chip('todo','進行中',rows.length-nReady)}</div>
   </div>`;
   const shown=rows.map((r,rank)=>({r,rank})).filter(x=>FILTER==='ready'?x.r.pct===100:FILTER==='todo'?x.r.pct<100:true);
@@ -1015,9 +1015,9 @@ function renderOverview(editable){
             <input id="an-join" class="addin" placeholder="入會時間（如 115.07.02）">
             <button type="button" class="btn primary act" onclick="addMember()">新增</button>
           </div>
-          <div class="allh-sub" style="margin-top:10px">新增與「🎓 完成出村」皆會先自動備份雲端資料（backups_v1），全體導師畫面即時同步。</div>
+          <div class="allh-sub" style="margin-top:10px">新增與完成出村前會自動備份。</div>
         </div>`
-      : `<div class="addbox locked" onclick="toggleCoord()"><span class="sq"></span>🔒 協調員功能（完成出村封存／新增村民）— 點此輸入密碼解鎖</div>`;
+      : `<div class="addbox locked" onclick="toggleCoord()"><span class="sq"></span>🔒 協調員功能：點此輸入密碼</div>`;
   }
   document.getElementById('view').innerHTML=head+'<div class="allgrid">'+(cards||'<div class="empty-f">這個分類目前沒有人</div>')+'</div>'+bottom;
 }
@@ -1071,10 +1071,10 @@ function renderKpis(){
 function renderArchive(){
   const v=document.getElementById('view');
   if(!ARCHIVE.length){
-    v.innerHTML='<div class="logempty">目前沒有已出村的封存紀錄。<br>會員完成出村後，跟我說一聲就能把他移入這裡，完整保存當時的檢核紀錄。</div>';
+    v.innerHTML='<div class="logempty">目前沒有已出村的紀錄。</div>';
     return;
   }
-  v.innerHTML=`<div class="allhead"><div><h3 class="allh-title">已出村封存</h3><div class="allh-sub">共 ${ARCHIVE.length} 位　·　點一下展開當時的逐項檢核</div></div></div><div class="alist-wrap">`+ARCHIVE.map((a,k)=>{
+  v.innerHTML=`<div class="allhead"><div><h3 class="allh-title">已出村封存</h3><div class="allh-sub">共 ${ARCHIVE.length} 位　·　點一下展開</div></div></div><div class="alist-wrap">`+ARCHIVE.map((a,k)=>{
     const items=(a.ver==='old')?OLD_ITEMS:NEW_ITEMS;
     const pct=a.total?Math.round(a.done/a.total*100):0;
     const rows=(a.items||[]).map((c,i)=>{
@@ -1157,7 +1157,7 @@ function tableHTML(V){
 }
 function renderTablesBoth(){
   document.getElementById('view').innerHTML=
-    '<div class="allhead"><div><h3 class="allh-title">檢核總表（17 項）</h3><div class="allh-sub">欄位依完成度由高到低排列　·　點格子切換狀態，格內可直接打備註</div></div></div>'
+    '<div class="allhead"><div><h3 class="allh-title">檢核總表（17 項）</h3><div class="allh-sub">點格子切換狀態，可直接打備註</div></div></div>'
     +'<div class="tablescroll rv">'+tableHTML('new')+'</div>';
 }
 
