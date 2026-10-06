@@ -2,7 +2,8 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#dbdbda" />
 <title>BNI GOLD CHAPTER｜New Member Onboarding Tracker</title>
 <!-- Firebase 即時資料庫 (compat 版,全域 firebase) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -10,335 +11,459 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Saira:ital,wght@1,600;1,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="assets/site.css">
 <style>
+  /* 追蹤表自己的樣式：沿用 assets/site.css 的暖灰／炭黑／BNI 紅，這裡只補本頁元件。
+     共用檔（site.css、motion.css、motion.js）和主網站共用，不要改那幾個檔，要調整請寫在這裡。 */
   :root{
-    --bg:#000; --panel:#0d1117; --panel2:#0f141b; --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
-    --txt:#e5e7eb; --mut:#8b95a5; --accent:#e10600;
-    --green:#28d17c; --green-d:#0c2e1c;
-    --yellow:#f5b301; --yellow-d:#3a2d05;
-    --red:#ef4444; --red-d:#3a1010;
-    --gray:#39414d;
-    --numfont:"Saira","Noto Sans TC",sans-serif;
+    --hair:rgba(32,32,32,.16);            /* 表格、清單內的細分隔線 */
+    --ok:#1f7a4a; --ok-bg:rgba(31,122,74,.13);
+    --wait:#a36f00; --wait-bg:rgba(217,154,0,.17);
+    --stick:var(--top-h,64px);           /* 黏頂工具列要讓出頁首的高度 */
   }
-  *{box-sizing:border-box}
-  body{margin:0;color:var(--txt);font-size:14px;
-    font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
-    background:
-      radial-gradient(900px 460px at 50% -4%, rgba(40,209,124,.10), transparent 62%),
-      radial-gradient(760px 420px at 50% 16%, rgba(245,179,1,.05), transparent 62%),
-      radial-gradient(760px 520px at 50% 40%, rgba(225,6,0,.05), transparent 62%),
-      #000;
-    background-attachment:fixed}
-  /* ===== Header ===== */
-  header{padding:18px 22px 14px;background:linear-gradient(180deg,#0a0a0c,#000);
-    border-bottom:2px solid var(--accent);position:relative;overflow:hidden;box-shadow:0 6px 28px rgba(225,6,0,.16)}
-  header::after{content:"";position:absolute;top:0;right:0;height:100%;width:150px;
-    background:repeating-linear-gradient(45deg,#000 0 12px,#141414 12px 24px);opacity:.3;pointer-events:none}
-  .titlewrap{display:flex;align-items:center;gap:13px;position:relative;z-index:1}
-  .slash{flex:0 0 auto;width:22px;height:22px;transform:skewX(-14deg);
-    background:repeating-linear-gradient(0deg,var(--accent) 0 4px,transparent 4px 7px);
-    filter:drop-shadow(0 0 6px rgba(225,6,0,.7))}
-  h1{margin:0;font-size:22px;font-weight:900;font-style:italic;letter-spacing:.5px;color:#fff;
-    text-shadow:0 0 20px rgba(225,6,0,.25)}
-  h1 .thin{font-weight:700;color:#c3ccd8}
-  .sub{color:var(--mut);font-size:11px;margin-top:7px;letter-spacing:3px;text-transform:uppercase}
-  .livepill{display:inline-flex;align-items:center;gap:9px;margin-top:10px;font-size:10.5px;letter-spacing:2px;
-    color:#aab4c2;text-transform:uppercase;background:rgba(255,255,255,.03);border:1px solid var(--line);padding:5px 11px;border-radius:20px}
-  .ldots{display:inline-flex;gap:4px}
-  .ldots i{width:6px;height:6px;border-radius:50%;display:inline-block;background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 1.4s infinite}
-  .ldots i:nth-child(2){background:var(--yellow);box-shadow:0 0 7px var(--yellow);animation-delay:.25s}
-  .ldots i:nth-child(3){background:var(--red);box-shadow:0 0 7px var(--red);animation-delay:.5s}
-  .livebadge{font-family:var(--numfont);font-style:italic;font-weight:800;letter-spacing:1px;color:#fff;background:var(--accent);padding:1px 8px;border-radius:5px;animation:pulse 1.6s infinite}
-  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(225,6,0,.55)}50%{box-shadow:0 0 0 7px rgba(225,6,0,0)}}
-  /* ===== Toolbar ===== */
-  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 22px;background:#070809;border-bottom:1px solid var(--line)}
-  .tabs{display:flex;gap:6px}
-  .tab{padding:9px 18px;border-radius:10px 10px 0 0;background:#0f141b;color:var(--mut);cursor:pointer;
-    border:1px solid var(--line);border-bottom:none;font-weight:800;font-style:italic;user-select:none;transition:.15s}
-  .tab:hover{color:#d6dde6}
-  .tab.active{background:linear-gradient(180deg,#ff1a14,var(--accent));color:#fff;border-color:var(--accent);box-shadow:0 0 16px rgba(225,6,0,.5)}
+  html.top-hidden{--stick:0px}
+  body{font-size:15px}
+
+  /* ── 頁首右側：同步狀態 ── */
+  .clock{gap:10px}
+  #mode{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;
+    border:1px solid var(--ink);padding:3px 9px;white-space:nowrap;line-height:1.5}
+  .m-local{color:var(--muted);border-style:dashed!important}
+  .m-ok{background:var(--ink);color:var(--base)}
+  .m-warn{background:var(--red);border-color:var(--red)!important;color:var(--on-red)}
+  .savetag{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ok);opacity:0;transition:opacity .4s var(--ease)}
+
+  /* ── 標頭 ── */
+  .hero-foot .zh-sub{margin:0;text-align:right}
+  .hero-foot p{color:var(--soft)}
+
+  /* ── [01] 概況數字 ── */
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ink);border-left:1px solid var(--ink);margin-top:6px}
+  .kpi{border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:14px 16px 16px;min-width:0}
+  .kpi .mono{display:flex;align-items:center;gap:8px;color:var(--soft);font-size:11.5px}
+  .kpi .v{display:flex;align-items:baseline;gap:6px;margin-top:10px}
+  .kpi .num{font-size:clamp(40px,5.4vw,68px)}
+  .kpi .u{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .kpi.hot{background:var(--ink);color:var(--base)}
+  .kpi.hot .mono,.kpi.hot .u{color:rgba(219,219,218,.7)}
+
+  /* ── [02] 黏頂工具列 ── */
+  .bar{position:sticky;top:var(--stick);z-index:20;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    padding:10px 0;margin-bottom:6px;background:rgba(219,219,218,.86);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);
+    border-bottom:1px solid var(--ink);transition:top .7s var(--ease)}
+  .bar .tabs{margin:0;flex:0 1 auto}
+  .tabs button.active{background:var(--ink);color:var(--base)}
+  .tabs button.active::before{content:"";display:inline-block;width:7px;height:7px;background:var(--red);margin-right:8px;vertical-align:1px}
+  .motion .tabs button.active::before{animation:breathe 3.6s var(--ease-io) infinite}
   .spacer{flex:1}
-  button.act{background:#0f141b;color:var(--txt);border:1px solid var(--line);padding:8px 12px;border-radius:10px;cursor:pointer;font-size:13px;transition:.15s}
-  button.act:hover{border-color:var(--accent);box-shadow:0 0 14px rgba(225,6,0,.35);color:#fff}
-  #mode{font-size:12px;padding:5px 12px 5px 24px;border-radius:20px;border:1px solid var(--line);white-space:nowrap;position:relative;font-weight:700}
-  #mode::before{content:"";position:absolute;left:9px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:currentColor}
-  .m-local{background:#161b22;color:#8b95a5}
-  .m-ok{background:rgba(40,209,124,.10);color:#5fe6a3;border-color:rgba(40,209,124,.5)}
-  .m-ok::before{box-shadow:0 0 8px var(--green);animation:blink 1.4s infinite}
-  .m-warn{background:var(--yellow-d);color:#ffdf85;border-color:var(--yellow)}
-  .mpick{background:#0f141b;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:14px;max-width:150px}
-  .legend{display:flex;gap:14px;align-items:center;color:var(--mut);font-size:12px;padding:9px 22px;flex-wrap:wrap;border-bottom:1px solid var(--line);background:rgba(255,255,255,.012)}
-  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}
-  .savetag{font-size:11px;color:var(--green);margin-left:4px;opacity:0;transition:opacity .3s}
-  .hint{color:var(--mut);font-size:11.5px;padding:8px 22px 14px;line-height:1.6}
-  /* ===== Table ===== */
-  .wrap{padding:14px 22px 70px;overflow:auto}
-  .tablescroll{overflow-x:auto;border-radius:12px}
-  table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line);table-layout:fixed}
-  th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
-  thead th{background:#0b1017;position:sticky;top:0;z-index:3;padding:10px 6px;font-size:12px}
-  .mcard{padding:8px;min-height:162px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;word-break:break-word}
-  .mname{font-size:16px;font-weight:900;font-style:italic;color:#fff}
-  .mind{color:var(--mut);font-size:11px;margin-top:2px}
-  .mmentor{font-size:11px;margin-top:3px}
-  .mmentor b{color:#7fc4ff}
-  .light{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:800;font-style:italic;margin-top:6px;font-family:var(--numfont);letter-spacing:.5px}
-  .L-green{background:var(--green-d);color:#7df3b4;border:1px solid var(--green);box-shadow:0 0 10px rgba(40,209,124,.25)}
-  .L-yellow{background:var(--yellow-d);color:#ffdf85;border:1px solid var(--yellow);box-shadow:0 0 10px rgba(245,179,1,.2)}
-  .L-red{background:var(--red-d);color:#ffb0b0;border:1px solid var(--red);box-shadow:0 0 10px rgba(239,68,68,.25)}
-  .L-gray{background:#161b22;color:#9aa6b5;border:1px solid var(--gray)}
-  .miss{font-size:10.5px;color:#ffce8a;margin-top:5px;line-height:1.35}
-  .mnoterow{font-size:10.5px;color:#9af0bd;margin-top:5px;line-height:1.4}
-  .mnote{outline:none;border:1px dashed rgba(154,240,189,.25);border-radius:4px;padding:0 4px;min-width:34px;display:inline-block;cursor:text}
-  .mnote:hover{border-color:rgba(154,240,189,.55)}
-  .mnote:focus{border-style:solid;border-color:var(--accent);background:#0a0e13;color:#caffe0}
-  .mnote:empty::before{content:"＋出村備註";color:#5a6675}
-  .mnote-c{margin-top:10px;color:#9af0bd}
-  /* ===== 已出村封存 ===== */
-  .acard::before{background:var(--green);box-shadow:0 0 14px rgba(40,209,124,.6)}
-  .agrad{font-size:11px;background:var(--green-d);color:#7df3b4;border:1px solid var(--green);border-radius:5px;padding:1px 7px;vertical-align:middle;font-style:normal;font-weight:700}
-  .alist{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
-  .arow{display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.045)}
-  .arow:last-child{border-bottom:none}
-  .aicon{width:20px;text-align:center;font-weight:900;background:none!important}
-  .aicon.st-done{color:#35f59a} .aicon.st-pending{color:var(--yellow)} .aicon.st-empty{color:var(--gray)}
-  .atitle{flex:1;min-width:0}
-  .anote{color:#ffdf9a;font-size:11.5px;white-space:nowrap}
-  .prog{font-size:11px;color:#c3ccd8;margin-top:6px;font-weight:700}
-  .itemcell{padding:9px;width:230px;word-break:break-word}
-  tbody tr{height:66px}
-  .inum{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-family:var(--numfont);font-style:italic;
-    background:#0b1017;border:1px solid var(--line);border-radius:50%;font-size:11px;color:#aeb8c4;margin-right:6px}
-  .ititle{font-weight:700}
-  .idetail{color:var(--mut);font-size:11px;margin-top:2px;margin-left:28px}
-  .iwho{display:inline-block;margin-left:28px;margin-top:3px;font-size:10.5px;background:#10263c;color:#8fc6ff;border-radius:4px;padding:1px 6px}
-  td.cell{cursor:pointer;text-align:center;vertical-align:middle;height:66px;transition:.12s;user-select:none;overflow:hidden}
-  td.cell:hover{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(225,6,0,.05)}
-  .st-done{background:rgba(40,209,124,.13)}
-  .st-pending{background:rgba(245,179,1,.13)}
+  .mpick{display:none}
+  button.act{white-space:nowrap}
+  .btn{min-height:40px;justify-content:center}
+  /* site.css 的 .btn:hover 用 background 簡寫，會把 motion.css 由下往上填色的漸層清掉（字變成淺色配淺底、看不見），這裡補回來 */
+  .btn:hover{background-image:linear-gradient(var(--ink),var(--ink))}
+  .btn.small{min-height:34px}
+  body.in-detail .bar,body.in-detail .hint{display:none}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:10px 0 4px;color:var(--soft);
+    font-family:var(--mono);font-size:11px;letter-spacing:.03em;text-transform:uppercase}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{display:inline-block;width:9px;height:9px;flex:none}
+  .legend .sep{color:var(--muted)}
+  #refstamp{color:var(--muted)}
+  .hint{margin:0 0 14px;max-width:760px}
+
+  /* ── 狀態色 ── */
+  .st-done{background:var(--ok-bg)}
+  .st-pending{background:var(--wait-bg)}
   .st-empty{background:transparent}
-  .sicon{font-size:17px;font-weight:900}
-  .st-done .sicon{color:#35f59a;font-weight:900;
-    filter:drop-shadow(0 0 5px rgba(53,245,154,.95)) drop-shadow(0 0 13px rgba(53,245,154,.55))}
-  .st-pending .sicon{color:var(--yellow);filter:drop-shadow(0 0 5px rgba(245,179,1,.6))}
-  .st-empty .sicon{color:var(--gray)}
-  .note{display:block;font-size:11px;color:#ffdf9a;margin-top:2px;min-height:13px;outline:none}
-  .note:empty::before{content:"＋備註";color:#39414d;font-size:10px}
-  tfoot td{background:#0b1017;font-weight:900;font-style:italic;font-family:var(--numfont);text-align:center;padding:7px;font-size:13px;color:#fff}
-  /* ===== Cards (mobile) ===== */
-  .ccard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px;
-    box-shadow:0 8px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03);position:relative;overflow:hidden}
-  .ccard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);box-shadow:0 0 14px rgba(225,6,0,.6)}
-  .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-  .cprog{display:flex;align-items:center;gap:10px;margin-top:13px;font-size:13px;color:var(--mut)}
-  .cprog span{font-family:var(--numfont);font-style:italic;font-weight:800;color:#fff;font-size:15px}
-  .cbar{flex:1;height:14px;background:#070b10;border:1px solid var(--line);border-radius:7px;overflow:hidden;padding:2px}
-  .cbarfill{height:100%;border-radius:4px;transition:width .45s ease;
-    background:repeating-linear-gradient(90deg,var(--green) 0 9px,rgba(0,0,0,.4) 9px 12px);box-shadow:0 0 12px rgba(40,209,124,.55)}
-  .crow{display:flex;gap:12px;align-items:stretch;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px;margin-bottom:9px;transition:.15s}
-  .crow:hover{border-color:var(--line2)}
-  .cstatus{flex:0 0 60px;display:flex;align-items:center;justify-content:center;border-radius:11px;cursor:pointer;min-height:60px;border:1px solid var(--line);background:#0a0e13;transition:.15s}
-  .cstatus.st-done{background:rgba(40,209,124,.12);border-color:rgba(40,209,124,.55);box-shadow:inset 0 0 16px rgba(40,209,124,.18)}
-  .cstatus.st-pending{background:rgba(245,179,1,.12);border-color:rgba(245,179,1,.5);box-shadow:inset 0 0 16px rgba(245,179,1,.15)}
-  .cstatus .sicon{font-size:27px}
-  .cinfo{flex:1;min-width:0}
-  .idetail2{color:var(--mut);font-size:12px;margin:4px 0 8px 28px;line-height:1.4}
-  .cnote{width:100%;box-sizing:border-box;background:#070b10;border:1px solid var(--line);border-radius:9px;color:#ffdf9a;padding:11px;font-size:16px;transition:.15s}
-  .cnote:focus{outline:none;border-color:var(--accent);box-shadow:0 0 12px rgba(225,6,0,.3)}
-  /* ===== 操作紀錄 Modal ===== */
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.74);backdrop-filter:blur(3px);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px}
-  .modalbox{background:#0b0f16;border:1px solid var(--line2);border-radius:14px;width:100%;max-width:740px;max-height:84vh;display:flex;flex-direction:column;
-    box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(225,6,0,.15)}
-  .modalhead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-  .modalhead b{font-style:italic;font-size:16px;color:#fff}
-  .loghint{color:var(--mut);font-size:11px;flex:1;min-width:120px}
-  .loglist{overflow:auto;padding:6px 12px 12px}
-  .logrow{display:grid;grid-template-columns:160px 1fr;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
-  .logrow:hover{background:rgba(255,255,255,.02)}
-  .logt{font-family:var(--numfont);font-style:italic;color:#8fb7ff;white-space:nowrap}
-  .logwho{color:#ffce8a;font-weight:700;margin-right:6px}
-  .logver{display:inline-block;font-size:10px;padding:0 6px;border-radius:4px;background:#10263c;color:#8fc6ff;margin-right:6px}
-  .logact{font-weight:800;font-style:italic;margin-left:4px}
-  .logact.a-done{color:#35f59a} .logact.a-pending{color:var(--yellow)} .logact.a-empty{color:var(--mut)} .logact.a-note{color:#ffdf9a} .logact.a-sys{color:#ff8a8a}
-  .logempty{color:var(--mut);text-align:center;padding:34px 10px;font-size:13px;line-height:1.7}
-  .linkrow{display:flex;gap:6px;align-items:center}
-  .linkbox{flex:1;min-width:0;background:#070b10;border:1px solid var(--line);border-radius:8px;color:#8fc6ff;padding:7px 9px;font-size:12px}
-  /* ===== ⚙️ 工具選單 ===== */
-  .toolgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:14px;overflow:auto}
-  .toolbtn{display:flex;align-items:center;gap:11px;background:#0f141b;border:1px solid var(--line);border-radius:12px;
-    padding:13px 14px;color:var(--txt);cursor:pointer;font-size:14.5px;font-weight:700;text-align:left;transition:.15s;font-family:inherit}
-  .toolbtn:hover{border-color:var(--accent);box-shadow:0 0 12px rgba(225,6,0,.3)}
-  .toolbtn small{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-top:2px}
-  .toolbtn.danger{border-color:rgba(239,68,68,.45);color:#ffb0b0}
-  .toolbtn.danger:hover{border-color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.35)}
-  @media (max-width:420px){ .toolgrid{grid-template-columns:1fr} }
-  /* ===== 協調員：完成出村／新增村民 ===== */
-  .gradbtn{margin-top:11px;width:100%;background:linear-gradient(180deg,#2fe08a,#18b96b);color:#04180c;border:none;
-    border-radius:9px;padding:10px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 0 14px rgba(40,209,124,.45);font-family:inherit}
-  .gradbtn:hover{filter:brightness(1.12)}
-  .addbox{margin-top:16px;background:var(--panel);border:1px dashed var(--line2);border-radius:13px;padding:14px}
-  .addbox.locked{color:var(--mut);font-size:12.5px;text-align:center;cursor:pointer;padding:12px}
-  .addbox.locked:hover{border-color:var(--accent);color:#d6dde6}
-  .addtitle{font-weight:900;font-style:italic;color:#fff;margin-bottom:10px}
-  .addrow{display:flex;gap:8px;flex-wrap:wrap}
-  .addin{flex:1;min-width:130px;background:#070b10;border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px 11px;font-size:14px}
-  .addin:focus{outline:none;border-color:var(--accent)}
-  /* ===== 村民唯讀預覽 ===== */
-  body.viewonly .bar, body.viewonly .hint{display:none}
-  body.viewonly .cstatus{cursor:default}
-  body.viewonly .legend{padding:12px 22px}
-  .ronote{color:#ffdf9a;font-size:13.5px;margin-top:6px;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-  /* ===== 村民唯讀「全體村民總覽」（賽車儀表卡片牆） ===== */
-  body.viewall .cstatus{cursor:default}
-  body.viewall .note{cursor:default}
-  .allhead{margin:2px 0 15px}
-  .allh-title{font-style:italic;font-weight:900;font-size:21px;color:#fff;letter-spacing:.5px;text-shadow:0 0 18px rgba(225,6,0,.2)}
-  .allh-sub{color:var(--mut);font-size:12px;margin-top:5px;line-height:1.6}
-  .allgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
-  .allcard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:14px 15px 13px;cursor:pointer;overflow:hidden;transition:.15s;
-    box-shadow:0 8px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)}
-  .allcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gray)}
-  .allcard.Lg::before{background:var(--green);box-shadow:0 0 14px rgba(40,209,124,.6)}
-  .allcard.Ly::before{background:var(--yellow);box-shadow:0 0 14px rgba(245,179,1,.55)}
-  .allcard.Lr::before{background:var(--red);box-shadow:0 0 14px rgba(239,68,68,.6)}
-  .allcard:hover{border-color:var(--accent);box-shadow:0 0 18px rgba(225,6,0,.35);transform:translateY(-2px)}
-  .allrank{position:absolute;right:11px;top:10px;font-family:var(--numfont);font-style:italic;font-weight:800;font-size:14px;color:#8b95a5}
-  .allcard .mname{font-size:18px}
-  .allcard .verpill{display:inline-block;font-size:10px;padding:1px 7px;border-radius:5px;background:#10263c;
-    color:#8fc6ff;margin-left:7px;vertical-align:middle;font-style:normal;font-weight:700}
-  .allmore{margin-top:11px;font-size:11.5px;color:#8fb7ff;font-weight:700}
-  .allcard:hover .allmore{color:#bcd9ff}
-  .backbar{margin-bottom:13px}
-  @media (max-width:768px){ .allgrid{grid-template-columns:1fr;gap:11px} .allh-title{font-size:17px} }
-  /* ===== Responsive ===== */
-  @media (max-width:768px){
-    header{padding:13px 14px 12px}
-    header::after{display:none}
-    h1{font-size:16px;line-height:1.3}
-    .slash{width:16px;height:16px}
-    .sub{font-size:10px;letter-spacing:1.5px}
-    .livepill{font-size:9px;gap:6px;padding:4px 8px}
-    .bar{padding:10px 12px;gap:6px}
-    .tab{padding:8px 12px;font-size:13px}
-    button.act{padding:8px 10px;font-size:12px}
-    .legend{padding:7px 12px;font-size:11px;gap:9px}
+  .sicon{font-size:18px;font-weight:900;line-height:1}
+  .st-done .sicon{color:var(--ok)}
+  .st-pending .sicon{color:var(--wait)}
+  .st-empty .sicon{color:var(--muted)}
+
+  /* ── 燈號 ── */
+  .light{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;
+    padding:2px 8px;border:1px solid var(--ink);white-space:nowrap;line-height:1.55}
+  .L-green{background:var(--g-green);border-color:var(--g-green);color:#fff}
+  .L-yellow{background:var(--g-yellow);border-color:var(--g-yellow);color:var(--ink)}
+  .L-red{background:var(--red);border-color:var(--red);color:#fff}
+  .L-gray{border-style:dashed;color:var(--muted)}
+
+  /* ── 進度條 ── */
+  .cbar{height:6px;background:rgba(32,32,32,.12);overflow:hidden;flex:1;min-width:0}
+  .cbarfill{height:100%;background:var(--ink);transform-origin:left;transition:width .8s var(--ease)}
+  .cbarfill.full{background:var(--ok)}
+  .motion #view.enter .cbarfill{animation:grow 1.3s var(--ease) both;animation-delay:calc(var(--i,0) * 55ms + .15s)}
+  @keyframes grow{from{transform:scaleX(0)}to{transform:none}}
+  .cprog{display:flex;align-items:center;gap:12px;margin-top:12px}
+  .cprog > span{font-family:var(--mono);font-size:12px;white-space:nowrap}
+
+  /* 換畫面時清單依序升起（同一畫面內重畫——例如點一下勾選——不再重播，滑動才順） */
+  @keyframes rise{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+  .motion #view.enter .rv{animation:rise 1s var(--ease) both;animation-delay:calc(var(--i,0) * 55ms)}
+
+  /* ── 總覽：篩選籤 + 村民清單 ── */
+  .allhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 20px;margin:8px 0 14px}
+  .allh-title{font-family:var(--zh);font-weight:900;font-size:clamp(22px,2.6vw,30px);line-height:1.2;margin:0}
+  .allh-sub{color:var(--soft);font-size:13px;margin-top:4px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--ink);background:transparent;padding:7px 12px;min-height:36px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:.04em;text-transform:uppercase;transition:background .35s var(--ease),color .35s var(--ease)}
+  .chip b{font-weight:700;margin-left:6px}
+  .chip.on{background:var(--ink);color:var(--base)}
+  .allgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));border-top:1px solid var(--ink);border-left:1px solid var(--ink)}
+  .allcard{position:relative;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:18px 18px 16px;cursor:pointer;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-content:start;background:transparent;
+    transition:background .5s var(--ease)}
+  .allcard:active{background:rgba(255,255,255,.4)}
+  @media(hover:hover){.allcard:hover{background:rgba(255,255,255,.34)}.allcard:hover .allmore i{transform:translateX(6px)}}
+  .allrank{grid-column:1;font-family:var(--mono);font-size:11.5px;color:var(--red);letter-spacing:.04em}
+  .allcard .light{grid-column:2;grid-row:1 / span 2;align-self:start;justify-self:end}
+  .allcard .mname{grid-column:1;font-family:var(--zh);font-weight:900;font-size:24px;line-height:1.2;margin-top:4px}
+  .allcard .mind{grid-column:1 / -1;color:var(--soft);font-size:13px;line-height:1.5}
+  .allcard .mind b{font-weight:700;color:var(--ink)}
+  .verpill{font-family:var(--mono);font-size:10px;border:1px solid var(--ink);padding:0 5px;margin-left:8px;vertical-align:4px;font-weight:500}
+  .allcard .pnum{grid-column:1 / -1;display:flex;align-items:baseline;gap:8px;margin-top:12px}
+  .pnum .num{font-size:44px}
+  .pnum .mono{color:var(--soft)}
+  .allcard .cprog{grid-column:1 / -1;margin-top:8px}
+  .allcard .miss{grid-column:1 / -1}
+  .miss{font-size:12.5px;color:var(--soft);margin-top:8px;line-height:1.5}
+  .miss::before{content:"";display:inline-block;width:6px;height:6px;background:var(--red);margin-right:7px;vertical-align:2px}
+  .miss.okline::before{background:var(--ok)}
+  .miss.plain::before{display:none}
+  .allmore{grid-column:1 / -1;margin-top:12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .allmore i{display:inline-block;font-style:normal;transition:transform .5s var(--ease)}
+  .gradbtn{grid-column:1 / -1;margin-top:12px;width:100%;min-height:44px;border:1px solid var(--ok);background:var(--ok);color:#fff;
+    font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.05em}
+  .gradbtn:hover{background:var(--ink);border-color:var(--ink)}
+  .empty-f{padding:28px 0;color:var(--muted);font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+
+  /* 新增村民（協調員） */
+  .addbox{margin-top:22px;border:1px solid var(--ink);padding:18px}
+  .addbox.locked{border-style:dashed;color:var(--soft);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .4s var(--ease)}
+  .addbox.locked:hover{background:rgba(255,255,255,.34)}
+  .addtitle{font-weight:900;font-size:18px;margin-bottom:10px}
+  .addrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px 14px;align-items:end}
+  .addin{display:block;width:100%;padding:10px 0;border:0;border-bottom:1px solid var(--ink);border-radius:0;background:transparent;font-size:16px}
+  .addin:focus{outline:none;border-color:var(--red);box-shadow:0 1px 0 0 var(--red)}
+
+  /* ── 單人檢核（明細） ── */
+  .backbar{position:sticky;top:var(--stick);z-index:20;display:flex;align-items:center;gap:12px;padding:10px 0;margin-bottom:4px;
+    background:rgba(219,219,218,.86);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);
+    border-bottom:1px solid var(--ink);transition:top .7s var(--ease)}
+  .backbar .bb-name{font-weight:900;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .backbar .bb-prog{margin-left:auto;font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .ccard{padding:14px 0 18px;border-bottom:1px solid var(--ink)}
+  .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .mname{font-family:var(--zh);font-weight:900}
+  .ccard .mname{font-size:clamp(30px,4.2vw,44px);line-height:1.1}
+  .ccard .mind{color:var(--soft);font-size:13.5px;margin-top:6px}
+  .ccard .mind b{color:var(--ink)}
+  .dnum{display:flex;align-items:baseline;gap:10px;margin-top:16px}
+  .dnum .num{font-size:clamp(54px,8vw,84px)}
+  .dnum .mono{color:var(--soft)}
+  .cnote{display:block;width:100%;padding:10px 0;border:0;border-bottom:1px solid var(--hair);border-radius:0;background:transparent;font-size:16px;color:var(--ink);transition:border-color .3s}
+  .cnote::placeholder{color:var(--muted)}
+  .cnote:focus{outline:none;border-color:var(--red);box-shadow:0 1px 0 0 var(--red)}
+  .mnote-c{margin-top:14px;border-bottom-color:var(--ink)}
+  .crow{display:grid;grid-template-columns:58px minmax(0,1fr);gap:14px;padding:14px 0;border-bottom:1px solid var(--hair);align-items:start}
+  .cstatus{width:58px;height:58px;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink);cursor:pointer;
+    -webkit-tap-highlight-color:transparent;transition:background .35s var(--ease),transform .35s var(--ease)}
+  .cstatus:active{transform:scale(.93)}
+  .cstatus.st-done{background:var(--ok);border-color:var(--ok)}
+  .cstatus.st-done .sicon{color:#fff}
+  .cstatus.st-pending{background:var(--wait-bg);border-color:var(--wait);border-style:dashed}
+  .cstatus .sicon{font-size:24px}
+  body.viewonly .cstatus,body.viewall .cstatus{cursor:default}
+  .cinfo{min-width:0}
+  .inum{display:inline-block;font-family:var(--mono);font-size:11.5px;color:var(--red);margin-right:8px;letter-spacing:.04em}
+  .ititle{font-weight:700;font-size:16px;line-height:1.4}
+  .idetail2{color:var(--soft);font-size:13px;margin:3px 0 2px;line-height:1.5}
+  .ronote{font-size:14px;margin-top:6px;padding:6px 0 0;border-top:1px dashed var(--hair)}
+
+  /* ── 已出村封存 ── */
+  .alist-wrap{border-top:1px solid var(--ink)}
+  details.acard{border-bottom:1px solid var(--ink)}
+  details.acard > summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;padding:18px 0;align-items:center}
+  details.acard > summary::-webkit-details-marker{display:none}
+  details.acard .mname{font-size:22px;line-height:1.2}
+  .agrad{font-family:var(--mono);font-size:10.5px;font-weight:500;background:var(--ok);color:#fff;padding:1px 7px;margin-left:8px;vertical-align:4px;letter-spacing:.04em}
+  .acard .mind{color:var(--soft);font-size:13px;margin-top:4px}
+  .acard .mind b{color:var(--ink)}
+  .aright{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .aright .mono{font-size:12px}
+  .aopen{font-family:var(--mono);font-size:18px;line-height:1;transition:transform .5s var(--ease)}
+  details[open] .aopen{transform:rotate(45deg)}
+  .abody{padding:0 0 18px}
+  .alist{margin-top:12px;border-top:1px solid var(--hair)}
+  .arow{display:flex;align-items:baseline;gap:10px;padding:8px 0;font-size:14px;border-bottom:1px solid var(--hair)}
+  .aicon{width:20px;flex:none;text-align:center;font-weight:900;background:none!important}
+  .aicon.st-done{color:var(--ok)} .aicon.st-pending{color:var(--wait)} .aicon.st-empty{color:var(--muted)}
+  .atitle{flex:1;min-width:0}
+  .anote{font-family:var(--mono);font-size:11.5px;color:var(--soft);text-align:right}
+
+  /* ── 整表（電腦） ── */
+  .tablescroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+  table.bigtable{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;table-layout:fixed;font-size:14px}
+  .bigtable th,.bigtable td{border-bottom:1px solid var(--hair);border-left:1px solid var(--hair);padding:0}
+  .bigtable thead th{vertical-align:top;text-align:left;font-weight:400;border-bottom:1px solid var(--ink)}
+  .bigtable th:first-child,.bigtable td:first-child{position:sticky;left:0;z-index:2;background:var(--base);border-left:0;border-right:1px solid var(--ink)}
+  .bigtable thead th:first-child{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:14px 12px;vertical-align:bottom}
+  .mcard{padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;word-break:break-word}
+  .mcard .mname{font-size:19px;line-height:1.2}
+  .mcard .mind,.mmentor{color:var(--soft);font-size:12px}
+  .mmentor b{color:var(--ink)}
+  .mcard .light{margin-top:6px}
+  .prog{font-family:var(--mono);font-size:11.5px;margin-top:6px}
+  .mcard .miss{margin-top:4px;font-size:11.5px}
+  .mnoterow{font-size:12px;margin-top:4px;line-height:1.4;color:var(--soft)}
+  .mnote{outline:none;border-bottom:1px dashed var(--muted);padding:0 2px;min-width:34px;display:inline-block;cursor:text;color:var(--ink)}
+  .mnote:focus{border-bottom:1px solid var(--red)}
+  .mnote:empty::before{content:"＋出村備註";color:var(--muted)}
+  .itemcell{padding:12px;width:230px;word-break:break-word;vertical-align:top}
+  .itemcell .inum{margin-right:6px}
+  .itemcell .ititle{font-size:14px}
+  .idetail{color:var(--soft);font-size:12px;margin-top:2px}
+  .iwho{display:inline-block;margin-top:5px;font-family:var(--mono);font-size:10.5px;border:1px solid var(--hair);padding:0 6px;color:var(--soft)}
+  tbody tr{height:66px}
+  td.cell{cursor:pointer;text-align:center;vertical-align:middle;height:66px;user-select:none;overflow:hidden;transition:background .35s var(--ease),box-shadow .2s}
+  td.cell:hover{box-shadow:inset 0 0 0 2px var(--red)}
+  body.viewall td.cell{cursor:default}
+  body.viewall td.cell:hover{box-shadow:none}
+  .note{display:block;font-family:var(--mono);font-size:11px;color:var(--ink);margin-top:3px;min-height:14px;outline:none;padding:0 4px}
+  .note:empty::before{content:"＋備註";color:var(--muted);font-size:10px}
+  .note:focus{box-shadow:inset 0 -1px 0 var(--red)}
+  tfoot td{font-family:var(--mono);font-weight:700;text-align:center;padding:10px 6px;font-size:12px;border-top:1px solid var(--ink)}
+
+  /* ── 對話框（手機為底部抽屜） ── */
+  .modal{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);align-items:center}
+  .modal > .modalbox{padding:0;max-width:740px;max-height:86vh;display:flex;flex-direction:column;animation:pop .55s var(--ease) both}
+  @keyframes pop{from{opacity:0;transform:translate3d(0,30px,0) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes sheet{from{transform:translate3d(0,100%,0)}to{transform:none}}
+  .modalhead{display:flex;align-items:center;gap:10px 14px;padding:18px 20px 14px;border-bottom:1px solid var(--ink);flex-wrap:wrap}
+  .modalhead b{font-family:var(--zh);font-weight:900;font-size:20px}
+  .loghint{color:var(--soft);font-size:12.5px;flex:1;min-width:160px;order:3;flex-basis:100%}
+  .modalhead .act{margin-left:auto}
+  .loglist{overflow:auto;padding:4px 20px 20px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .logrow{display:grid;grid-template-columns:170px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--hair);font-size:13.5px;line-height:1.55}
+  .logt{font-family:var(--mono);font-size:11.5px;color:var(--soft);white-space:nowrap;padding-top:2px}
+  .logwho{font-weight:700;margin-right:6px}
+  .logver{display:inline-block;font-family:var(--mono);font-size:10px;padding:0 5px;border:1px solid var(--ink);margin-right:6px;vertical-align:1px}
+  .logact{font-weight:700;margin-left:4px}
+  .logact.a-done{color:var(--ok)} .logact.a-pending{color:var(--wait)} .logact.a-empty{color:var(--muted)} .logact.a-note{color:var(--ink)} .logact.a-sys{color:var(--red)}
+  .logempty{color:var(--soft);text-align:center;padding:34px 10px;font-size:14px;line-height:1.8}
+  .logempty b{color:var(--ink)}
+  .linkrow{display:flex;gap:8px;align-items:center}
+  .linkbox{flex:1;min-width:0;border:0;border-bottom:1px solid var(--ink);border-radius:0;background:transparent;padding:9px 0;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+  #userinput{font-family:var(--zh);font-size:17px}
+  .userrow{padding:20px;display:flex;gap:10px;align-items:flex-end}
+  .toolgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .toolbtn{display:flex;align-items:center;gap:14px;background:transparent;border:0;border-bottom:1px solid var(--hair);border-radius:0;
+    padding:15px 20px;min-height:64px;font-size:15px;font-weight:700;text-align:left;font-family:var(--zh);color:var(--ink);
+    transition:background .4s var(--ease),color .4s var(--ease)}
+  .toolbtn:nth-child(odd){border-right:1px solid var(--hair)}
+  .toolbtn:hover{background:var(--ink);color:var(--base)}
+  .toolbtn small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}
+  .toolbtn:hover small{color:rgba(219,219,218,.7)}
+  .toolbtn .ti{width:34px;height:34px;flex:none;display:grid;place-items:center;border:1px solid currentColor;font-size:16px}
+  .toolbtn.danger{color:var(--red)}
+  .toolbtn.danger:hover{background:var(--red);color:var(--on-red)}
+
+  /* 村民唯讀 */
+  body.viewonly .bar,body.viewonly .hint,body.viewonly #board-intro{display:none}
+  body.viewonly:not(.viewall) #kpipanel{display:none}
+
+  @media(max-width:760px){
+    body{font-size:15px}
+    .hero-foot .zh-sub{text-align:left}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .kpi{padding:12px 12px 14px}
+    .kpi .num{font-size:44px}
+    .bar,.backbar{margin-inline:calc(-1 * var(--gutter));padding-inline:var(--gutter)}
+    .bar .tabs{flex:1 1 auto}
+    .bar .tabs button{flex:1 1 0;padding:11px 8px}
+    #modebtn{display:none}
     .hint{display:none}
-    .wrap{padding:12px 12px 90px}
-    #mode{font-size:11px;padding:4px 10px 4px 22px}
-    .modal{padding:14px 8px}
+    .bar .spacer{display:none}
+    .legend{gap:6px 12px}
+    .allgrid{grid-template-columns:minmax(0,1fr)}
+    .allcard{padding:16px 2px 14px;border-right:0}
+    .allgrid{border-left:0}
+    .allcard .mname{font-size:22px}
+    .pnum .num{font-size:40px}
+    .addrow{grid-template-columns:minmax(0,1fr)}
+    .addrow .btn{width:100%}
+    .crow{grid-template-columns:52px minmax(0,1fr);gap:12px}
+    .cstatus{width:52px;height:52px}
     .logrow{grid-template-columns:1fr;gap:2px}
+    .toolgrid{grid-template-columns:minmax(0,1fr)}
+    .toolbtn:nth-child(odd){border-right:0}
+    /* 對話框改成從底部滑出的抽屜，拇指搆得到 */
+    .modal{align-items:flex-end;padding:0}
+    .modal > .modalbox{max-width:none;max-height:90svh;border-left:0;border-right:0;border-bottom:0;animation:sheet .6s var(--ease) both;
+      padding-bottom:env(safe-area-inset-bottom,0px)}
+    .modalhead{padding:16px var(--gutter) 12px}
+    .loglist{padding:4px var(--gutter) 20px}
+    .userrow{padding:18px var(--gutter)}
+    .toolbtn{padding:10px var(--gutter);min-height:58px}
   }
   @media print{
-    .bar,.legend,.hint,.livepill{display:none}
-    td.cell:hover{outline:none}
+    .top,.frame,.hero-page,.bar,.legend,.hint,.foot,#kpipanel,.modal{display:none!important}
+    td.cell:hover{box-shadow:none}
     body{background:#fff;color:#000}
-    .wrap{padding:0}
+    .panel{display:block}
+    .panel > .idx{display:none}
+    .tablescroll{overflow:visible}
   }
 </style>
+<link rel="stylesheet" href="assets/motion.css">
+<script src="assets/motion.js"></script>
+<script src="assets/vendor/lenis.min.js" defer></script>
 </head>
-<body>
-<header>
-  <div class="titlewrap">
-    <span class="slash"></span>
-    <h1>BNI GOLD CHAPTER <span class="thin">New Member Onboarding Tracker</span></h1>
-    <span class="slash"></span>
-  </div>
-  <div class="sub">全鑫白金分會 新會員出村檢核追蹤表 ｜ 導師協調員監督用</div>
-  <div class="livepill"><span class="ldots"><i></i><i></i><i></i></span>Race Control · 即時共用追蹤<span class="livebadge">LIVE</span></div>
-</header>
+<body class="overlay-top">
+<div class="frame"><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
-<div class="bar">
-  <div class="tabs">
-    <div class="tab active" data-v="ovw" onclick="switchVer('ovw')">🏁 全體進度</div>
-    <div class="tab" data-v="arc" onclick="switchVer('arc')">📦 已出村封存</div>
-  </div>
-  <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
-  <button class="act" id="modebtn" onclick="toggleMode()">📱 單人檢視</button>
-  <div class="spacer"></div>
-  <span id="savetag" class="savetag">✔ 已儲存</span>
-  <span id="mode" class="m-local">● 本機模式</span>
-  <button class="act" onclick="openTools()">⚙️ 工具</button>
-  <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
-</div>
+<header class="top"><div class="wrap">
+  <a class="brand" href="https://bnigoldchaptertc.bnigoldchaptertc.workers.dev/">全鑫分會 <b>／ GOLD CHAPTER</b></a>
+  <span class="clock"><span id="savetag" class="savetag">✔ 已儲存</span><span id="mode" class="m-local">● 本機模式</span></span>
+</div></header>
 
-<div id="toolmodal" class="modal" style="display:none" onclick="if(event.target===this)closeTools()">
-  <div class="modalbox" style="max-width:520px">
+<section class="hero-page">
+  <div class="hero-media"><img src="assets/media/hero.jpg" alt=""></div>
+  <div class="hero-veil"></div>
+  <div class="hero-body">
+    <p class="mono kicker" data-rv><span class="sq"></span>&nbsp; 全鑫分會管理網站 ／ 新會員出村檢核</p>
+    <h1 class="fit" data-reserve="300"><span class="ln">Onboarding</span><span class="ln">Tracker</span></h1>
+    <div class="hero-foot">
+      <p>新會員從入會到出村的 17 項檢核，所有導師即時共用同一份資料。點一下格子就能切換完成狀態，燈號與引薦、來賓、成交數字自動帶入。</p>
+      <p class="zh-sub">新會員出村檢核</p>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+  <section class="panel" id="kpipanel"><span class="idx mono">[01]</span><div>
+    <p class="mono kicker"><span class="sq"></span>&nbsp; Overview ／ 概況</p>
+    <div class="kpis" id="kpis"></div>
+  </div></section>
+
+  <section class="panel" id="board"><span class="idx mono">[02]</span><div>
+    <div id="board-intro">
+      <p class="mono kicker"><span class="sq"></span>&nbsp; Checklist ／ 檢核進度</p>
+    </div>
+    <div class="bar">
+      <div class="tabs">
+        <button type="button" class="tab active" data-v="ovw" onclick="switchVer('ovw')">全體進度</button>
+        <button type="button" class="tab" data-v="arc" onclick="switchVer('arc')">已出村封存</button>
+      </div>
+      <select id="mpick" class="mpick" onchange="pickMember(this.value)" style="display:none"></select>
+      <button type="button" class="btn small act" id="modebtn" onclick="toggleMode()">整表檢視</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn small act" onclick="openTools()">⚙ 工具</button>
+      <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--ok)"></span>完成（點一下切換）</span>
+      <span><span class="dot" style="background:var(--g-yellow)"></span>進行中 / 排程中</span>
+      <span><span class="dot" style="border:1px solid var(--ink)"></span>未開始</span>
+      <span class="sep">／ 燈號</span>
+      <span><span class="dot" style="background:var(--g-green)"></span>綠燈 ≥70</span>
+      <span><span class="dot" style="background:var(--g-yellow)"></span>黃燈 50–69</span>
+      <span><span class="dot" style="background:var(--red)"></span>紅燈 &lt;50</span>
+      <span id="refstamp"></span>
+    </div>
+    <p class="hint">操作：點格子循環切換 <b>未開始 → 完成 → 進行中</b>；「＋備註」可直接打字填日期（如 6/26、7/30前）。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</p>
+    <div id="view"></div>
+  </div></section>
+</main>
+
+<div id="toolmodal" class="modal" style="display:none" data-lenis-prevent onclick="if(event.target===this)closeTools()">
+  <div class="modalbox" style="max-width:560px">
     <div class="modalhead">
-      <b>⚙️ 工具</b>
+      <b>工具</b>
+      <button type="button" class="btn small act" onclick="closeTools()">✕ 關閉</button>
       <span class="loghint">日常勾選直接點表格即可，這裡是進階功能</span>
-      <button class="act" onclick="closeTools()">✕ 關閉</button>
     </div>
     <div class="toolgrid">
-      <button class="toolbtn" onclick="closeTools();openLinks()">🔗<span>村民連結<small>全體總覽共用連結</small></span></button>
-      <button class="toolbtn" onclick="location.href='bio.html'">📋<span>四加一表<small>新會員填寫與匯出</small></span></button>
-      <button class="toolbtn" onclick="closeTools();openLog()">📜<span>操作紀錄<small>誰在何時改了什麼</small></span></button>
-      <button class="toolbtn" onclick="closeTools();exportImage()">🖼<span>匯出整表圖片<small>目前所有村民進度</small></span></button>
-      <button class="toolbtn" id="userbtn" onclick="setUser()">👤<span>操作者<small id="usernow"></small></span></button>
-      <button class="toolbtn" onclick="toggleCoord()">👑<span>協調員模式<small id="coordnow"></small></span></button>
-      <button class="toolbtn" onclick="exportJSON()">⬇<span>備份<small>下載 JSON 檔</small></span></button>
-      <button class="toolbtn" onclick="document.getElementById('imp').click()">⬆<span>還原<small>匯入備份檔</small></span></button>
-      <button class="toolbtn" onclick="closeTools();window.print()">🖨<span>列印<small>友善列印版面</small></span></button>
-      <button class="toolbtn" onclick="setupSync()">☁<span>同步設定<small>Firebase 連線</small></span></button>
-      <button class="toolbtn danger" onclick="resetAll()">↺<span>重設<small>清除全部回預設</small></span></button>
+      <button class="toolbtn" onclick="closeTools();openLinks()"><span class="ti">🔗</span><span>村民連結<small>全體總覽共用連結</small></span></button>
+      <button class="toolbtn" onclick="location.href='bio.html'"><span class="ti">📋</span><span>四加一表<small>新會員填寫與匯出</small></span></button>
+      <button class="toolbtn" onclick="closeTools();openLog()"><span class="ti">📜</span><span>操作紀錄<small>誰在何時改了什麼</small></span></button>
+      <button class="toolbtn" onclick="closeTools();exportImage()"><span class="ti">🖼</span><span>匯出整表圖片<small>目前所有村民進度</small></span></button>
+      <button class="toolbtn" id="userbtn" onclick="setUser()"><span class="ti">👤</span><span>操作者<small id="usernow"></small></span></button>
+      <button class="toolbtn" onclick="toggleCoord()"><span class="ti">👑</span><span>協調員模式<small id="coordnow"></small></span></button>
+      <button class="toolbtn" onclick="exportJSON()"><span class="ti">⬇</span><span>備份<small>下載 JSON 檔</small></span></button>
+      <button class="toolbtn" onclick="document.getElementById('imp').click()"><span class="ti">⬆</span><span>還原<small>匯入備份檔</small></span></button>
+      <button class="toolbtn" onclick="closeTools();window.print()"><span class="ti">🖨</span><span>列印<small>友善列印版面</small></span></button>
+      <button class="toolbtn" onclick="setupSync()"><span class="ti">☁</span><span>同步設定<small>Firebase 連線</small></span></button>
+      <button class="toolbtn danger" onclick="resetAll()"><span class="ti">↺</span><span>重設<small>清除全部回預設</small></span></button>
     </div>
   </div>
 </div>
 
-<div id="logmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLog()">
+<div id="logmodal" class="modal" style="display:none" data-lenis-prevent onclick="if(event.target===this)closeLog()">
   <div class="modalbox">
     <div class="modalhead">
-      <b>📜 操作修改紀錄</b>
+      <b>操作修改紀錄</b>
+      <button type="button" class="btn small act" onclick="closeLog()">✕ 關閉</button>
       <span class="loghint">記錄狀態切換與備註修改（含時間 / 操作者），所有導師即時共用</span>
-      <button class="act" onclick="closeLog()">✕ 關閉</button>
     </div>
     <div id="loglist" class="loglist"></div>
   </div>
 </div>
 
-<div id="usermodal" class="modal" style="display:none;z-index:60" onclick="if(event.target===this)cancelUser()">
-  <div class="modalbox" style="max-width:430px">
+<div id="usermodal" class="modal" style="display:none;z-index:60" data-lenis-prevent onclick="if(event.target===this)cancelUser()">
+  <div class="modalbox" style="max-width:460px">
     <div class="modalhead">
-      <b>👤 請輸入操作者姓名</b>
+      <b>請輸入操作者姓名</b>
+      <button type="button" class="btn small act" id="userclose" onclick="cancelUser()">✕ 關閉</button>
       <span class="loghint">所有勾選與備註都會記錄是誰改的；此裝置會自動記住，之後不再詢問</span>
-      <button class="act" id="userclose" onclick="cancelUser()">✕ 關閉</button>
     </div>
-    <div style="padding:16px;display:flex;gap:8px">
-      <input id="userinput" class="linkbox" style="font-size:16px;color:#fff;padding:11px 12px" placeholder="你的名字（例：林淙仁）" onkeydown="if(event.key==='Enter')confirmUser()">
-      <button class="act" onclick="confirmUser()" style="white-space:nowrap;font-weight:700">確定</button>
+    <div class="userrow">
+      <input id="userinput" class="linkbox" placeholder="你的名字（例：林淙仁）" onkeydown="if(event.key==='Enter')confirmUser()">
+      <button type="button" class="btn primary act" onclick="confirmUser()">確定</button>
     </div>
   </div>
 </div>
 
-<div id="linkmodal" class="modal" style="display:none" onclick="if(event.target===this)closeLinks()">
+<div id="linkmodal" class="modal" style="display:none" data-lenis-prevent onclick="if(event.target===this)closeLinks()">
   <div class="modalbox">
     <div class="modalhead">
-      <b>🔗 村民共用檢視連結</b>
+      <b>村民共用檢視連結</b>
+      <button type="button" class="btn small act" onclick="closeLinks()">✕ 關閉</button>
       <span class="loghint">傳到分會群組：所有村民都能看到全部新會員的檢核進度，唯讀無法編輯</span>
-      <button class="act" onclick="closeLinks()">✕ 關閉</button>
     </div>
     <div id="linklist" class="loglist"></div>
   </div>
 </div>
 
-<div class="legend">
-  <span><span class="dot" style="background:var(--green)"></span>完成（點一下切換）</span>
-  <span><span class="dot" style="background:var(--yellow)"></span>進行中 / 排程中</span>
-  <span><span class="dot" style="background:var(--gray)"></span>未開始</span>
-  <span>｜ 燈號：</span>
-  <span><span class="dot" style="background:var(--green)"></span>綠燈 ≥70</span>
-  <span><span class="dot" style="background:var(--yellow)"></span>黃燈 50–69</span>
-  <span><span class="dot" style="background:var(--red)"></span>紅燈 &lt;50</span>
-  <span id="refstamp" style="color:#7fc4ff"></span>
-</div>
-<div class="hint">操作:點格子循環切換 <b>未開始 → 完成 → 進行中</b>;「＋備註」可直接打字填日期(如 6/26、7/30前)。<b>雲端共用模式</b>下所有導師看到並更新同一份即時資料。燈號分數已對照線上紅綠燈檢視表帶入。</div>
-
-<div class="wrap">
-  <div id="view"></div>
-</div>
+<footer class="foot">
+  <div class="steps-edge"></div>
+  <div class="foot-panel">
+    <div class="foot-grid">
+      <div>
+        <p class="lead">Onboarding Tracker<span>新會員出村檢核</span></p>
+        <p>BNI 全鑫白金分會 ／ 導師協調員</p>
+      </div>
+      <div>
+        <h4>Links</h4>
+        <a href="https://bnigoldchaptertc.bnigoldchaptertc.workers.dev/">全鑫分會管理網站 →</a>
+        <a href="bio.html">四加一表 →</a>
+        <a href="?view=all">村民總覽（唯讀） →</a>
+      </div>
+      <div>
+        <h4>Data</h4>
+        <p>雲端即時共用，所有導師同一份</p>
+        <p>燈號與數字：紅綠燈檢視表</p>
+        <p>每週日 21:30 自動更新</p>
+      </div>
+    </div>
+    <div class="wordmark"><span>/Gold Chapter</span></div>
+  </div>
+</footer>
 
 <script>
 /* ====== 資料:對照「新會員出村紀錄」表 + 線上紅綠燈檢視表(2026/06/23) ====== */
@@ -486,8 +611,8 @@ function showRescue(missing){
   if(document.getElementById('rescuebar')) return;
   const bar=document.createElement('div');
   bar.id='rescuebar';
-  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#7f1d1d;'+
-    'color:#fff;padding:12px 14px;font-size:14px;line-height:1.6;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#cf2030;'+
+    'color:#fff;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));font-size:14px;line-height:1.6;border-top:1px solid #202020';
   const msg=document.createElement('div');
   msg.textContent='⚠ 這台裝置留有雲端已經沒有的村民資料：'+missing.join('、')+
     '　請按「下載救援檔」把它存下來，再交給導師協調員。';
@@ -495,11 +620,11 @@ function showRescue(missing){
   row.style.cssText='margin-top:8px;display:flex;gap:8px;flex-wrap:wrap';
   const dl=document.createElement('button');
   dl.textContent='⬇ 下載救援檔';
-  dl.style.cssText='padding:8px 14px;border:0;border-radius:6px;font-size:14px;cursor:pointer;background:#fff;color:#7f1d1d;font-weight:700';
+  dl.style.cssText='padding:10px 14px;border:1px solid #fff;font-size:14px;cursor:pointer;background:#fff;color:#cf2030;font-weight:700';
   dl.onclick=downloadRescue;
   const later=document.createElement('button');
   later.textContent='稍後再說';
-  later.style.cssText='padding:8px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;font-size:14px;cursor:pointer;background:transparent;color:#fff';
+  later.style.cssText='padding:10px 14px;border:1px solid rgba(255,255,255,.7);font-size:14px;cursor:pointer;background:transparent;color:#fff';
   later.onclick=()=>bar.remove();   // 快照留在 localStorage，隨時還能再下載
   row.appendChild(dl); row.appendChild(later);
   bar.appendChild(msg); bar.appendChild(row);
@@ -565,7 +690,7 @@ function connectSync(){
     logRef.limitToLast(500).on('value', s=>{ const v=s.val()||{}; LOG=Object.values(v).sort((a,b)=>b.t-a.t); if(logOpen) renderLog(); });
     firebase.database().ref('refdata').on('value', s=>{ const rd=s.val(); if(rd) applyRefdata(rd); });
     firebase.database().ref('archive_v1').on('value', s=>{ ARCHIVE=s.val()||[];
-      ARCHIVE_LOADED=true; evalRescue();
+      ARCHIVE_LOADED=true; evalRescue(); renderKpis();
       if(!editing && (CUR==='arc' || (VIEWNAME&&!VIEWALL&&!VIEWONLY))) render(); });
     SHARED=true;
     dbRef.on('value', snap=>{
@@ -721,19 +846,19 @@ async function exportImage(){
   if(typeof html2canvas==='undefined'){ alert('圖片元件尚未載入完成，請稍候幾秒再試一次。'); return; }
   const btns=document.querySelectorAll('.bar button'); btns.forEach(b=>b.disabled=true);
   const newTable=tableHTML('new');
-  const sec=(t,n)=>`<div style="font:italic 900 17px/1.3 'Noto Sans TC',sans-serif;color:#fff;margin:18px 0 8px;padding-left:10px;border-left:4px solid #e10600">${t}<span style="color:#8b95a5;font-size:13px;font-style:normal;font-weight:400">　${n}</span></div>`;
+  const sec=(t,n)=>`<div style="font:900 18px/1.3 'Noto Sans TC',sans-serif;color:#202020;margin:20px 0 10px;padding-left:10px;border-left:6px solid #cf2030">${t}<span style="color:#6f6f6c;font-size:13px;font-weight:400">　${n}</span></div>`;
   const box=document.createElement('div');
-  box.style.cssText='position:fixed;left:0;top:0;z-index:9999;background:#000;padding:22px;overflow:auto;width:100vw;height:100vh;font-family:"Noto Sans TC",sans-serif';
+  box.style.cssText='position:fixed;left:0;top:0;z-index:9999;background:#dbdbda;color:#202020;padding:22px;overflow:auto;width:100vw;height:100vh;font-family:"Noto Sans TC",sans-serif';
   box.innerHTML='<div id="capwrap" style="display:inline-block;min-width:1100px">'
-    +'<div style="font:italic 900 22px/1.3 \'Noto Sans TC\',sans-serif;color:#fff;margin-bottom:4px">🏁 BNI GOLD CHAPTER — 新會員出村檢核追蹤表</div>'
-    +'<div style="color:#8b95a5;font-size:13px">匯出時間：'+fmtT(Date.now())+'</div>'
+    +'<div style="font:900 24px/1.3 \'Noto Sans TC\',sans-serif;color:#202020;margin-bottom:4px">BNI GOLD CHAPTER — 新會員出村檢核追蹤表</div>'
+    +'<div style="color:#6f6f6c;font-size:13px">匯出時間：'+fmtT(Date.now())+'</div>'
     +sec('檢核總表','17 項')+newTable
     +'</div>';
   document.body.appendChild(box);
   const cap=box.querySelector('#capwrap');
   try{
     const canvas=await Promise.race([
-      html2canvas(cap,{backgroundColor:'#000',scale:2,logging:false,useCORS:true}),
+      html2canvas(cap,{backgroundColor:'#dbdbda',scale:2,logging:false,useCORS:true}),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('產生逾時，請再試一次')),25000))
     ]);
     const fname='BNI檢核追蹤_'+fmtT(Date.now()).replace(/[\/: ]/g,'-')+'.jpg';
@@ -813,12 +938,13 @@ function renderViewMiss(){
       const label=items[i]?items[i][0]:('項目 '+(i+1));
       return `<div class="arow"><span class="aicon ${STCLASS[s]}">${ICON[s]}</span><span class="atitle">${i+1}. ${label}</span>${n?`<span class="anote">${n}</span>`:''}</div>`;
     }).join('');
-    v.innerHTML=`<div class="ccard acard">
+    v.innerHTML=`<div class="ccard rv">
       <div class="chead"><div>
-        <div class="mname" style="font-size:20px">${a.name} <span class="agrad">已出村</span></div>
-        <div class="mind">${a.ind||''}　導師：<b style="color:#7fc4ff">${a.mentor||''}</b></div></div></div>
-      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${a.done}/${a.total}（${pct}%）</span></div>
-      <div class="miss" style="color:#7df3b4">🎉 恭喜完成出村！以下是你當時的完整檢核紀錄。</div>
+        <div class="mname">${a.name}<span class="agrad">已出村</span></div>
+        <div class="mind">${a.ind||''}　導師：<b>${a.mentor||''}</b></div></div></div>
+      <div class="dnum"><span class="num">${a.done}</span><span class="mono">/ ${a.total} ・ ${pct}%</span></div>
+      <div class="cprog"><div class="cbar"><div class="cbarfill${pct===100?' full':''}" style="width:${pct}%"></div></div></div>
+      <div class="miss okline">🎉 恭喜完成出村！以下是你當時的完整檢核紀錄。</div>
       <div class="alist">${rows}</div></div>`;
     return;
   }
@@ -830,8 +956,8 @@ function openLinks(){
   const base=location.origin+location.pathname;
   const url=base+'?view=all';
   document.getElementById('linklist').innerHTML=
-    `<div class="logrow"><div class="logt">全部村民・總表</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button class="act" onclick="copyLink(this,'${url}')">複製</button></div></div>`
-    +`<div class="logempty" style="padding:16px 6px 4px;text-align:left;font-size:12px;line-height:1.7">把這條連結傳到分會群組，所有村民都能即時看到<b style="color:#c3ccd8">全部新會員</b>的總覽卡片牆（含燈號與引薦／來賓／成交缺口），<b style="color:#c3ccd8">依完成度由高到低排序</b>；<b style="color:#c3ccd8">點任一人</b>即可展開他的完整逐項檢核。開啟後為<b style="color:#c3ccd8">唯讀</b>，村民只能看、不能改。</div>`;
+    `<div class="logrow"><div class="logt">全部村民・總表</div><div class="linkrow"><input class="linkbox" readonly value="${url}" onclick="this.select()"><button type="button" class="btn small act" onclick="copyLink(this,'${url}')">複製</button></div></div>`
+    +`<div class="logempty" style="padding:16px 0 4px;text-align:left;font-size:13.5px;line-height:1.8">把這條連結傳到分會群組，所有村民都能即時看到<b>全部新會員</b>的總覽（含燈號與引薦／來賓／成交缺口），<b>依完成度由高到低排序</b>；<b>點任一人</b>即可展開他的完整逐項檢核。開啟後為<b>唯讀</b>，村民只能看、不能改。</div>`;
   document.getElementById('linkmodal').style.display='flex';
 }
 function closeLinks(){ document.getElementById('linkmodal').style.display='none'; }
@@ -851,24 +977,32 @@ function buildAllList(){
   return rows;
 }
 function barClass(v){ if(v==null) return ''; if(v>=70) return 'Lg'; if(v>=50) return 'Ly'; return 'Lr'; }
+/* 總覽篩選（只影響顯示，排名仍依全體計算） */
+let FILTER='all';
+function setFilter(f){ FILTER=f; render(); }
+function pad2s(n){ return String(n).padStart(2,'0'); }
 function renderOverview(editable){
   const rows=buildAllList();
   const stamp=(REFMETA&&REFMETA.updatedAt)?('　·　數據更新 '+REFMETA.updatedAt):'';
+  const nReady=rows.filter(r=>r.pct===100).length;
+  const chip=(f,label,n)=>`<button type="button" class="chip${FILTER===f?' on':''}" onclick="setFilter('${f}')">${label}<b>${n}</b></button>`;
   const head=`<div class="allhead">
-    <div class="allh-title">🏁 全體新會員 出村進度總覽</div>
-    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div>
+    <div><h3 class="allh-title">全體新會員 出村進度</h3>
+    <div class="allh-sub">依完成度由高到低排序，共 ${rows.length} 位　·　${editable?'點任一人進入勾選編輯':'點任一人看完整檢核內容'}${stamp}</div></div>
+    <div class="chips">${chip('all','全部',rows.length)}${chip('ready','可出村',nReady)}${chip('todo','進行中',rows.length-nReady)}</div>
   </div>`;
-  const cards=rows.map((r,rank)=>`
-    <div class="allcard ${barClass(r.m.light)}" onclick="${editable?`openEditDetail('${r.ver}',${r.idx})`:`openAllDetail('${r.ver}',${r.idx})`}">
-      <div class="allrank">#${rank+1}</div>
+  const shown=rows.map((r,rank)=>({r,rank})).filter(x=>FILTER==='ready'?x.r.pct===100:FILTER==='todo'?x.r.pct<100:true);
+  const cards=shown.map(({r,rank},k)=>`
+    <div class="allcard rv ${barClass(r.m.light)}" style="--i:${k}" onclick="${editable?`openEditDetail('${r.ver}',${r.idx})`:`openAllDetail('${r.ver}',${r.idx})`}">
+      <div class="allrank">#${pad2s(rank+1)}</div>
+      <div class="light ${lightClass(r.m.light)}">${lightLabel(r.m.light)}</div>
       <div class="mname">${r.m.name}${r.ver==='old'?'<span class="verpill">舊 15</span>':''}</div>
-      <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b style="color:#7fc4ff">${r.m.mentor}</b></div>
-      ${r.m.join?`<div class="mind" style="margin-top:3px">🗓 入會 ${r.m.join}</div>`:''}
-      <div class="light ${lightClass(r.m.light)}" style="margin-top:8px">${lightLabel(r.m.light)}</div>
-      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${r.pct}%"></div></div><span>${r.done}/${r.total}（${r.pct}%）</span></div>
+      <div class="mind">${r.m.ind}${r.m.npc?'｜'+r.m.npc:''}　導師 <b>${r.m.mentor}</b>${r.m.join?`　入會 ${r.m.join}`:''}</div>
+      <div class="pnum"><span class="num">${r.done}</span><span class="mono">/ ${r.total} ・ ${r.pct}%</span></div>
+      <div class="cprog"><div class="cbar"><div class="cbarfill${r.pct===100?' full':''}" style="width:${r.pct}%;--i:${k}"></div></div></div>
       ${r.m.miss?`<div class="miss">缺：${r.m.miss}</div>`:''}
-      ${editable&&COORD&&r.pct===100?`<button class="gradbtn" onclick="event.stopPropagation();graduate('${r.ver}',${r.idx})">🎓 完成出村（封存）</button>`:''}
-      <div class="allmore">${editable?'進入編輯 ›':'看完整檢核 ›'}</div>
+      ${editable&&COORD&&r.pct===100?`<button type="button" class="gradbtn" onclick="event.stopPropagation();graduate('${r.ver}',${r.idx})">🎓 完成出村（封存）</button>`:''}
+      <div class="allmore">${editable?'進入編輯':'看完整檢核'} <i>→</i></div>
     </div>`).join('');
   let bottom='';
   if(editable){
@@ -879,20 +1013,42 @@ function renderOverview(editable){
             <input id="an-ind" class="addin" placeholder="行業">
             <input id="an-mentor" class="addin" placeholder="負責導師">
             <input id="an-join" class="addin" placeholder="入會時間（如 115.07.02）">
-            <button class="act" style="font-weight:700;padding:10px 18px" onclick="addMember()">新增</button>
+            <button type="button" class="btn primary act" onclick="addMember()">新增</button>
           </div>
-          <div class="allh-sub" style="margin-top:8px">新增與「🎓 完成出村」皆會先自動備份雲端資料（backups_v1），全體導師畫面即時同步。</div>
+          <div class="allh-sub" style="margin-top:10px">新增與「🎓 完成出村」皆會先自動備份雲端資料（backups_v1），全體導師畫面即時同步。</div>
         </div>`
-      : `<div class="addbox locked" onclick="toggleCoord()">🔒 協調員功能（完成出村封存／新增村民）— 點此輸入密碼解鎖</div>`;
+      : `<div class="addbox locked" onclick="toggleCoord()"><span class="sq"></span>🔒 協調員功能（完成出村封存／新增村民）— 點此輸入密碼解鎖</div>`;
   }
-  document.getElementById('view').innerHTML=head+'<div class="allgrid">'+cards+'</div>'+bottom;
+  document.getElementById('view').innerHTML=head+'<div class="allgrid">'+(cards||'<div class="empty-f">這個分類目前沒有人</div>')+'</div>'+bottom;
 }
-function openAllDetail(ver,idx){ ALLSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
-function closeAllDetail(){ ALLSEL=null; render(); window.scrollTo(0,0); }
-function openEditDetail(ver,idx){ EDITSEL={ver,idx}; CUR=ver; PICK=idx; render(); window.scrollTo(0,0); }
-function closeEditDetail(){ EDITSEL=null; CUR='ovw'; render(); window.scrollTo(0,0); }
+/* 進出單人檢核時，捲回清單頂端（不是整頁頂端——上面還有大標頭） */
+function scrollToBoard(){
+  const el=document.getElementById('board'); if(!el) return;
+  const y=Math.max(0, el.getBoundingClientRect().top + window.scrollY - 8);
+  if(window.scrollY<=y) return;
+  const L=window.MOTION&&window.MOTION.lenis;
+  if(L) L.scrollTo(y,{duration:.9}); else window.scrollTo({top:y,behavior:'smooth'});
+}
+function openAllDetail(ver,idx){ ALLSEL={ver,idx}; CUR=ver; PICK=idx; render(); scrollToBoard(); }
+function closeAllDetail(){ ALLSEL=null; render(); scrollToBoard(); }
+function openEditDetail(ver,idx){ EDITSEL={ver,idx}; CUR=ver; PICK=idx; render(); scrollToBoard(); }
+function closeEditDetail(){ EDITSEL=null; CUR='ovw'; render(); scrollToBoard(); }
 
+/* 換到不同畫面才播進場動畫；同一畫面重畫（點勾選、雲端推送）不重播 */
+let LASTVIEW='';
 function render(){
+  renderView();
+  renderKpis();
+  const key=[CUR,MODE,FILTER,VIEWALL?'all':'',EDITSEL?EDITSEL.ver+EDITSEL.idx:'',ALLSEL?ALLSEL.ver+ALLSEL.idx:'',VIEWONLY?'vo':''].join('|');
+  const v=document.getElementById('view');
+  if(v){
+    if(key!==LASTVIEW){ v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
+    else v.classList.remove('enter');
+  }
+  LASTVIEW=key;
+  document.body.classList.toggle('in-detail', !!(EDITSEL||(VIEWALL&&ALLSEL)));
+}
+function renderView(){
   if(VIEWNAME && !VIEWALL){ resolveViewOnly(); if(!VIEWONLY){ renderViewMiss(); return; } }
   if(VIEWALL){ if(ALLSEL){ renderCards(); } else { renderOverview(false); } return; }
   if(VIEWONLY){ renderCards(); return; }
@@ -901,6 +1057,16 @@ function render(){
   if(MODE==='cards') renderOverview(true); else renderTablesBoth();
   syncControls();
 }
+/* [01] 概況數字 */
+function renderKpis(){
+  const el=document.getElementById('kpis'); if(!el) return;
+  const rows=buildAllList(), n=rows.length;
+  const avg=n?Math.round(rows.reduce((s,r)=>s+r.pct,0)/n):0;
+  const ready=rows.filter(r=>r.pct===100).length;
+  const arc=(ARCHIVE&&ARCHIVE.length)||0;
+  const k=(label,v,u,hot)=>`<div class="kpi${hot?' hot':''}"><div class="mono"><span class="sq"></span>${label}</div><div class="v"><span class="num">${v}</span><span class="u">${u}</span></div></div>`;
+  el.innerHTML=k('在村新會員',n,'位')+k('平均完成度',avg,'%')+k('可出村',ready,'位',ready>0)+k('已出村',arc,'位');
+}
 
 function renderArchive(){
   const v=document.getElementById('view');
@@ -908,7 +1074,7 @@ function renderArchive(){
     v.innerHTML='<div class="logempty">目前沒有已出村的封存紀錄。<br>會員完成出村後，跟我說一聲就能把他移入這裡，完整保存當時的檢核紀錄。</div>';
     return;
   }
-  v.innerHTML=ARCHIVE.map(a=>{
+  v.innerHTML=`<div class="allhead"><div><h3 class="allh-title">已出村封存</h3><div class="allh-sub">共 ${ARCHIVE.length} 位　·　點一下展開當時的逐項檢核</div></div></div><div class="alist-wrap">`+ARCHIVE.map((a,k)=>{
     const items=(a.ver==='old')?OLD_ITEMS:NEW_ITEMS;
     const pct=a.total?Math.round(a.done/a.total*100):0;
     const rows=(a.items||[]).map((c,i)=>{
@@ -916,19 +1082,21 @@ function renderArchive(){
       const label=items[i]?items[i][0]:('項目 '+(i+1));
       return `<div class="arow"><span class="aicon ${STCLASS[s]}">${ICON[s]}</span><span class="atitle">${i+1}. ${label}</span>${n?`<span class="anote">${n}</span>`:''}</div>`;
     }).join('');
-    return `<div class="ccard acard">
-      <div class="chead">
-        <div><div class="mname" style="font-size:20px">${a.name} <span class="agrad">已出村</span></div>
-          <div class="mind">${a.ind||''}${a.npc?'｜'+a.npc:''}　導師：<b style="color:#7fc4ff">${a.mentor||''}</b>　${a.ver==='old'?'舊版 15 項':'新版 17 項'}</div></div>
-        <div class="light ${lightClass(a.light)}">${lightLabel(a.light)}</div>
+    return `<details class="acard rv" style="--i:${k}">
+      <summary>
+        <div><div class="mname">${a.name}<span class="agrad">已出村</span></div>
+          <div class="mind">${a.ind||''}${a.npc?'｜'+a.npc:''}　導師：<b>${a.mentor||''}</b>　${a.ver==='old'?'舊版 15 項':'新版 17 項'}</div></div>
+        <div class="aright"><div class="light ${lightClass(a.light)}">${lightLabel(a.light)}</div><span class="mono">${a.done}/${a.total}（${pct}%）</span><span class="aopen">+</span></div>
+      </summary>
+      <div class="abody">
+        <div class="cprog"><div class="cbar"><div class="cbarfill${pct===100?' full':''}" style="width:${pct}%"></div></div></div>
+        ${a.note?`<div class="miss okline">▸ ${a.note}</div>`:''}
+        ${a.miss?`<div class="miss">出村時尚缺：${a.miss}</div>`:''}
+        <div class="miss plain">封存時間：${a.archivedAt||''}</div>
+        <div class="alist">${rows}</div>
       </div>
-      <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${a.done}/${a.total}（${pct}%）</span></div>
-      ${a.note?`<div class="miss" style="color:#9af0bd">▸ ${a.note}</div>`:''}
-      ${a.miss?`<div class="miss">出村時尚缺：${a.miss}</div>`:''}
-      <div class="miss" style="color:#8b95a5">封存時間：${a.archivedAt||''}</div>
-      <div class="alist">${rows}</div>
-    </div>`;
-  }).join('');
+    </details>`;
+  }).join('')+'</div>';
 }
 
 function tableHTML(V){
@@ -988,9 +1156,9 @@ function tableHTML(V){
   return '<table class="bigtable">'+head+body+foot+'</table>';
 }
 function renderTablesBoth(){
-  const sec=t=>`<div class="allh-title" style="font-size:17px;margin:4px 0 10px;padding-left:10px;border-left:4px solid var(--accent)">${t}</div>`;
   document.getElementById('view').innerHTML=
-    sec('檢核總表（17 項）')+'<div class="tablescroll">'+tableHTML('new')+'</div>';
+    '<div class="allhead"><div><h3 class="allh-title">檢核總表（17 項）</h3><div class="allh-sub">欄位依完成度由高到低排列　·　點格子切換狀態，格內可直接打備註</div></div></div>'
+    +'<div class="tablescroll rv">'+tableHTML('new')+'</div>';
 }
 
 function renderCards(){
@@ -1002,27 +1170,29 @@ function renderCards(){
   const m=members[PICK];
   let done=0; grid.forEach(row=>{ if(row[PICK][0]===1) done++; });
   const pct=Math.round(done/items.length*100);
-  let h = VIEWALL ? `<div class="backbar"><button class="act" onclick="closeAllDetail()">← 返回全體村民</button></div>`
-        : EDITSEL ? `<div class="backbar"><button class="act" onclick="closeEditDetail()">← 返回全體進度</button></div>` : '';
-  h+=`<div class="ccard">
+  const back=(fn,label)=>`<div class="backbar"><button type="button" class="btn small act" onclick="${fn}()">← ${label}</button><span class="bb-name">${m.name}</span><span class="bb-prog">${done}/${items.length}</span></div>`;
+  let h = VIEWALL ? back('closeAllDetail','返回全體村民')
+        : EDITSEL ? back('closeEditDetail','返回全體進度') : '';
+  h+=`<div class="ccard rv">
     <div class="chead">
-      <div><div class="mname" style="font-size:20px">${m.name}</div>
-        <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b style="color:#7fc4ff">${m.mentor}</b></div>
-        ${m.join?`<div class="mind" style="margin-top:3px">🗓 入會時間：<b style="color:#e5e7eb">${m.join}</b></div>`:''}</div>
+      <div><div class="mname">${m.name}</div>
+        <div class="mind">${m.ind}${m.npc?'｜'+m.npc:''}　導師：<b>${m.mentor}</b></div>
+        ${m.join?`<div class="mind" style="margin-top:2px">入會時間：<b>${m.join}</b></div>`:''}</div>
       <div class="light ${lightClass(m.light)}">${lightLabel(m.light)}</div>
     </div>
-    <div class="cprog"><div class="cbar"><div class="cbarfill" style="width:${pct}%"></div></div><span>${done}/${items.length}（${pct}%）</span></div>
+    <div class="dnum"><span class="num">${done}</span><span class="mono">/ ${items.length} ・ ${pct}%</span></div>
+    <div class="cprog"><div class="cbar"><div class="cbarfill${pct===100?' full':''}" style="width:${pct}%"></div></div></div>
     ${m.miss?`<div class="miss">缺：${m.miss}</div>`:''}
     ${ro
-      ? ((notesArr(V)[PICK]||'')?`<div class="miss" style="color:#9af0bd">▸ ${notesArr(V)[PICK]}</div>`:'')
+      ? ((notesArr(V)[PICK]||'')?`<div class="miss okline">▸ ${notesArr(V)[PICK]}</div>`:'')
       : `<input class="cnote mnote-c" placeholder="＋出村備註（可手動編輯）" value="${(notesArr(V)[PICK]||'').replace(/"/g,'&quot;')}" onfocus="mnoteFocus('${V}',${PICK})" onblur="mnoteBlur('${V}',${PICK})" oninput="setMemberNote('${V}',${PICK},this.value)">`}
   </div>`;
   items.forEach((it,ii)=>{
     const [s,n]=grid[ii][PICK];
-    h+=`<div class="crow">
-      <div class="cstatus ${STCLASS[s]}" ${ro?'':`onclick="cycle('${V}',${ii},${PICK})"`}><span class="sicon">${ICON[s]}</span></div>
+    h+=`<div class="crow rv" style="--i:${Math.min(ii+1,12)}">
+      <div class="cstatus ${STCLASS[s]}" ${ro?'':`role="button" aria-label="切換狀態：${ACTLABEL[s]}" onclick="cycle('${V}',${ii},${PICK})"`}><span class="sicon">${ICON[s]}</span></div>
       <div class="cinfo">
-        <div><span class="inum">${ii+1}</span><span class="ititle">${it[0]}</span></div>
+        <div><span class="inum">${pad2s(ii+1)}</span><span class="ititle">${it[0]}</span></div>
         <div class="idetail2">${it[1]}　·　負責：${it[2]}</div>
         ${ro
           ? (n?`<div class="ronote">📝 ${n}</div>`:'')
@@ -1041,7 +1211,7 @@ function syncControls(){
   if(!b) return;
   if(CUR==='arc'||EDITSEL){ b.style.display='none'; return; }
   b.style.display='';
-  b.textContent = MODE==='cards'?'📊 整表檢視':'🏁 總覽檢視';
+  b.textContent = MODE==='cards'?'整表檢視':'總覽檢視';
 }
 function pickMember(v){ PICK=+v; render(); }
 function toggleMode(){ MODE=(MODE==='cards'?'table':'cards'); MODE_LOCKED=true; render(); }
