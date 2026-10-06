@@ -41,11 +41,13 @@
   - **PPT 的字級估算**：`boxScale()` 估的行高用 **字級 × 1.45**（PowerPoint／LibreOffice 用字型的 ascent+descent 排版，中文字型約 1.45 倍），不是網頁 CSS 的 1.2。表格儲存格不吃 `<a:normAutofit>`，要直接改 run 的 `sz`。網頁預覽走另一條路：直接量 DOM 的實際高度（`shrinkBoxes()`）。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT（已存成 `tools/bio-source.pptx`）產生：在表格空格與文字框注入 token、補上原檔沒有的欄位、把版面頁尾的「XX 分會」換成分會名。**原始 PPT 若改版，換掉 `tools/bio-source.pptx` 再重跑此腳本即可**，不要手改模板。改完模板要接著重跑 `build-slide-view.py`。
 - **`vcp.html`**：**VCP 互評**月度分析（2026/10 新增，手機優先）。領導團隊密碼同 8888。
-  - 資料節點 `vcp_v1`：`months/<YYYY-MM>/scores/<姓名> = {v,c,p,note,at,by}`、`members/<姓名>/join = 'YYYY-MM'`（算會齡，重新入會填重新入會月份）、`settings`（分類門檻）。
-  - 總分 = V+C+P；每月依總分排名分五類：新人陪伴（會齡 < newMonths）→ 優先關懷 → 持續觀察（含比上月下滑）→ 標竿（需紅綠燈 ≥ starLight）→ 穩定。門檻可在頁面「⚙️ 規則」調整並存雲端。
+  - 資料節點 `vcp_v1`：`months/<YYYY-MM>/scores/<姓名> = {v,c,p,n?,note,at,by}`（n＝此人收到的評選數，選填）、`months/<YYYY-MM>/raters`（本月完成評選人數）、`members/<姓名>/join = 'YYYY-MM'`（算會齡，重新入會填重新入會月份）、`settings`（分類門檻）。
+  - 計算照 `bnigoldchaptertc/bnigoldchaptertc` 的 `vcp/VCP互評規則.md`（2026-10-06 使用者決定）：收到評選數＝n，否則完成人數 − 1；V 認識率＝V÷收到評選數、C 平均＝C÷收到評選數（1–5）、P 往來率＝P÷收到評選數；
+    綜合指數＝(V 認識率＋C 平均÷5＋P 往來率)÷3×100。以分會內百分等級判斷，單項在後 25% 為偏低。
+    分類依序：新人陪伴（最近會齡 ≤ 3 個月）→ 優先關懷（兩項以上偏低或指數後 10%）→ 持續觀察（一項偏低或指數比上回降 ≥ 5 點）→ 標竿（指數前 20% 且綠燈 ≥ 70）→ 穩定。門檻可在頁面「⚙️ 規則」調整並存雲端（`newMonths,lowPct,idxCarePct,starPct,dropPts,starLight`）。
   - 紅綠燈與近 6 月缺口直接讀 `refdata`，會員名單 = `refdata` ∪ `vcp_v1/members` ∪ 有分數的人。
   - 輸入方式：逐人輸入（改完即存）或貼上／上傳 CSV（標題需含 姓名、V、C、P，可選 入會日期、備註），可匯出 CSV、月報可複製貼到 LINE。
-  - 待使用者確認：C 評分範圍（1–5 或 0–5）、新人期 3 或 6 個月（`settings.newMonths`）。
+  - 規則文件已確認：C 為 1–5 分、新人期 3 個月（最近會齡）。月報僅供會員委員會內部使用，不公開個人排名或最低名單。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
   `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
   - `tracker_v7`：進行中檢核資料 `{mlist:1, old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[], oldMembers:[…], newMembers:[…]}`；狀態 0=未開始 1=完成 2=進行中。**2026/07 起名單（oldMembers/newMembers）存於節點內**，網頁協調員模式可直接封存／新增，不再需要為名單異動 bump 版本；index.html 內的名單陣列僅作首次種子。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
