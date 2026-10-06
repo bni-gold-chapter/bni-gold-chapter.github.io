@@ -4,10 +4,10 @@
 // 放在同一個資料庫裡，於是備份跟著一起消失 —— 等於完全沒有備份。備份必須
 // 離開那個資料庫才算備份。
 //
-// 用法：node backup-firebase.js       （由 backup-firebase.yml 每天自動跑）
+// 用法：node backup-firebase.js       （由 backup-firebase.yml 每小時自動跑，有變動才 commit）
 //
 // 一個節點寫成一個檔案，不是全部塞進一個大檔：沒變動的節點產生一模一樣的
-// 位元組，git 就不會為它存新的 blob，repo 不會因為每天備份而膨脹。
+// 位元組，git 就不會為它存新的 blob，repo 不會因為頻繁備份而膨脹。
 const fs = require('fs');
 const path = require('path');
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';

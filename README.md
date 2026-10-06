@@ -68,7 +68,7 @@ BNI 全鑫白金分會．導師協調員監督用的線上系統。
 | `update-refdata.yml` | **每週日 21:30 自動** ＋ 手動 | `force`（數據無變化也寫入）|
 | `add-member.yml` | 手動 | `members` JSON 陣列 |
 | `edit-member.yml` | 手動 | `edits` JSON 陣列（`field`: ind\|mentor\|join\|npc\|note\|name）|
-| `backup-firebase.yml` | **每天 03:17 自動** ＋ 手動 | 無 —— 匯出整個資料庫到 `backups/` 並 commit |
+| `backup-firebase.yml` | **每小時自動（有變動才 commit）** ＋ 手動 | 無 —— 匯出整個資料庫到 `backups/` 並 commit |
 | `restore-firebase.yml` | 手動 | `node`（節點）＋ `confirm`（把節點名字再打一次）|
 | `check-data.yml` | 手動 | 無 —— 唯讀列出雲端各節點現況 |
 
@@ -113,7 +113,7 @@ python3 tools/build-roman-table.py > 拼音表.txt                 # 貼進 bio.
 > 🔐 **安全現況**：資料庫規則目前**開放讀寫**，網址就在這個公開 repo 裡。
 > 任何人都能讀取（含 `bio_v1` 的會員個資）與刪除。收緊做法見 [CLAUDE.md](CLAUDE.md)。
 >
-> 🗃 **離線備份**：`backup-firebase.yml` 每天把整個資料庫匯出到 `backups/` 並 commit，
+> 🗃 **離線備份**：`backup-firebase.yml` 每小時把整個資料庫匯出到 `backups/` 並 commit，
 > git 歷史就是有版本的備份。要還原用 `restore-firebase.yml`。
 > **2026/09 曾整個資料庫被清空**，當時 `backups_v1` 與資料同庫、一起消失 —— 詳見 [CLAUDE.md](CLAUDE.md)。
 

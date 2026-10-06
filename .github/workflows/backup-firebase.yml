@@ -1,14 +1,23 @@
 name: 備份 Firebase 到 repo
 
-# 每天把整個資料庫匯出成 backups/ 裡的檔案並 commit。
+# 每小時把整個資料庫匯出成 backups/ 裡的檔案，內容有變才 commit。
 # git 歷史就是一份離線、有版本的備份 —— 資料庫整個被清空也救得回來。
+#
+# 2026/10 起由每天改為每小時：四加一表（bio_v1）是新會員一筆一筆手打的，
+# 整份重填的代價很高。每小時跑、沒變就不 commit —— 有人填寫才會多一個版本，
+# 最多只會損失一小時內的修改。
 #
 # 2026/09 的教訓：原本的 backups_v1 跟它要備份的資料在同一個資料庫，
 # 資料庫一被清空，備份跟著沒了。備份必須離開那個資料庫。
 on:
   schedule:
-    - cron: '17 19 * * *'      # 每天台灣時間 03:17
+    - cron: '17 * * * *'       # 每小時第 17 分（GitHub 排程尖峰時可能延後幾分鐘）
   workflow_dispatch:
+
+# 手動觸發和排程撞在一起時排隊跑，不要兩個同時 push
+concurrency:
+  group: backup-firebase
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -35,5 +44,7 @@ jobs:
             echo '資料沒有變動，不產生 commit。'
           else
             git commit -m '備份 Firebase 資料（自動）'
+            # 跑的這一分鐘裡 main 若有人 push（合併 PR 等），先接上再推，免得整個備份被拒
+            git pull --rebase --quiet origin "${GITHUB_REF_NAME}"
             git push
           fi
