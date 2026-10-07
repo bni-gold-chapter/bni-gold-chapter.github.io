@@ -41,7 +41,7 @@
   - **PPT 的字級估算**：`boxScale()` 估的行高用 **字級 × 1.45**（PowerPoint／LibreOffice 用字型的 ascent+descent 排版，中文字型約 1.45 倍），不是網頁 CSS 的 1.2。表格儲存格不吃 `<a:normAutofit>`，要直接改 run 的 `sz`。網頁預覽走另一條路：直接量 DOM 的實際高度（`shrinkBoxes()`）。
   - `bio-template.pptx` 由 `tools/build-bio-template.py` 從分會原始 PPT（已存成 `tools/bio-source.pptx`）產生：在表格空格與文字框注入 token、補上原檔沒有的欄位、把版面頁尾的「XX 分會」換成分會名。**原始 PPT 若改版，換掉 `tools/bio-source.pptx` 再重跑此腳本即可**，不要手改模板。改完模板要接著重跑 `build-slide-view.py`。
 - **Firebase Realtime Database**（專案 `bni-tracker-b3ef8`）：
-  `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`，規則永久開放讀寫。
+  `https://bni-tracker-b3ef8-default-rtdb.firebaseio.com`。**2026/10/07 起規則已收緊**：要（匿名）登入才讀寫得到、根節點不可寫入（見「收緊 Firebase 權限」）。
   - `tracker_v7`：進行中檢核資料 `{mlist:1, old:[[狀態,備註]…], new:[…], oldNotes:[], newNotes:[], oldMembers:[…], newMembers:[…]}`；狀態 0=未開始 1=完成 2=進行中。**2026/07 起名單（oldMembers/newMembers）存於節點內**，網頁協調員模式可直接封存／新增，不再需要為名單異動 bump 版本；index.html 內的名單陣列僅作首次種子。**版本號要與 index.html 內的 `KEY` 和 `dbRef` 一致**。
   - `backups_v1`：協調員每次「完成出村／新增村民」前的自動全量備份（含時間、操作者、原因）
   - `archive_v1`：已出村封存（完整檢核快照）
@@ -164,7 +164,7 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 | 1 | 程式上線（已完成） | 網頁照常運作，Console 可能出現「匿名登入失敗」警告，屬正常 |
 | 2 | 主控台 → Authentication → Sign-in method → **啟用「匿名」** | 重開網頁，Console 不再出現警告 |
 | 3 | 觸發一次 `update-refdata.yml` | log 不再出現「匿名登入未取得 token」　**✅ 2026/10/05 已驗證**：log 直接是 `Firebase PUT 200`，無警告 |
-| 4 | 主控台 → Realtime Database → 規則 → 貼上 `firebase-rules.json` **全部內容** → 發布 | 見下方驗收 |
+| 4 | 主控台 → Realtime Database → 規則 → 貼上 `firebase-rules.json` **全部內容** → 發布 | 見下方驗收　**✅ 2026/10/07 已套用**，`verify-rules.yml` 四項全過（未登入讀 `bio_v1` → 401、根節點寫入被擋） |
 
 **第 4 步之後的驗收 —— 直接觸發 `verify-rules.yml`**（任一項失敗就立刻回滾）。
 它自動檢查三件事，不必自己開無痕視窗：

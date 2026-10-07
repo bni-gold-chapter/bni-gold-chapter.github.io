@@ -82,9 +82,10 @@ node -e "const fs=require('fs');const h=fs.readFileSync('index.html','utf8');new
 
 ---
 
-## 4. 資料在哪（沒有 repo 也能讀）
+## 4. 資料在哪
 
-Firebase Realtime Database，**目前規則是完全開放的**（未登入就能讀寫，見第 7 節）：
+Firebase Realtime Database。**2026/10/07 起要（匿名）登入才讀得到**，直接打網址會回 `401 Permission denied`。
+腳本請透過 `fb-auth.js` 取得匿名 token（本 repo 的腳本都已內建）；沒有 repo 時請觸發 `check-data.yml`（唯讀）看現況：
 
 ```
 https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/<節點>.json
@@ -100,7 +101,7 @@ https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/<節點>.json
 
 讀取範例（唯讀，安全）：
 ```bash
-curl -s https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/tracker_v7.json
+node check-data.js      # 透過 fb-auth.js 匿名登入後讀取，只讀不寫
 ```
 
 ### `tracker_v7` 的形狀
@@ -164,9 +165,8 @@ curl -s https://bni-tracker-b3ef8-default-rtdb.firebaseio.com/tracker_v7.json
 
 ## 7. 已知問題（尚未處理）
 
-- **線上 Firebase 規則仍是完全開放**：`firebase-rules.json` 已寫好收緊版本
-  （要求登入），但**尚未套用到 Firebase 主控台**。實測未登入仍可寫入。
-  `fb-auth.js` 已備妥匿名登入，套用後腳本仍可運作
+- ~~線上 Firebase 規則完全開放~~ → **2026/10/07 已套用 `firebase-rules.json`**，
+  `verify-rules.yml` 驗收四項全過。之後改規則檔要再貼到主控台並重跑驗收
 - **協調員密碼 `8888` 寫死在公開 repo 裡**，等於只是「防手滑」，不是真的防護
 - **`backups_v1` 節點不可靠**：和被備份的資料在同一個資料庫，一起被清空過。
   真正的備份是 `backups/` 資料夾 + git 歷史

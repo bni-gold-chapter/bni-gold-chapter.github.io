@@ -110,8 +110,8 @@ python3 tools/build-roman-table.py > 拼音表.txt                 # 貼進 bio.
 | `backups_v1` | 出村／新增前的自動全量備份（含時間、操作者、原因）。⚠️ 這是**站內**備份，資料庫整個被清空時會跟著消失 —— 真正的備份在 repo 的 `backups/` |
 | `logs_v1` | 操作紀錄 |
 
-> 🔐 **安全現況**：資料庫規則目前**開放讀寫**，網址就在這個公開 repo 裡。
-> 任何人都能讀取（含 `bio_v1` 的會員個資）與刪除。收緊做法見 [CLAUDE.md](CLAUDE.md)。
+> 🔐 **安全現況**：2026/10/07 起資料庫規則已收緊——要（匿名）登入才讀寫得到，
+> 根節點不可寫入、主要節點不能被整個刪除。驗收用 `verify-rules.yml`，細節見 [CLAUDE.md](CLAUDE.md)。
 >
 > 🗃 **離線備份**：`backup-firebase.yml` 每小時把整個資料庫匯出到 `backups/` 並 commit，
 > git 歷史就是有版本的備份。要還原用 `restore-firebase.yml`。
