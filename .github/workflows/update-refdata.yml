@@ -24,3 +24,6 @@ jobs:
         run: node update-refdata.js
         env:
           FORCE: ${{ inputs.force && '1' || '' }}
+          # 管理網站「紅綠燈儀表板」的金鑰（LINE 領導團隊群組輸入「儀表板」拿到的連結裡 ?k= 後面那串）。
+          # 放在 repo Settings → Secrets and variables → Actions，名稱 DASHBOARD_KEY。公開 repo，絕不寫進檔案。
+          DASHBOARD_KEY: ${{ secrets.DASHBOARD_KEY }}

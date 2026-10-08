@@ -47,7 +47,10 @@
   - `archive_v1`：已出村封存（完整檢核快照）
   - `refdata`：紅綠燈檢視表數據（燈號/引薦/來賓/成交/培訓/一對一），依**姓名**對應
   - `logs_v1`：操作紀錄
-- **資料來源**：分會紅綠燈檢視表 https://service-2026-937515995986.us-west1.run.app/ （無 CORS，瀏覽器抓不到，必須用腳本抓）
+- **資料來源（2026/10/08 起）**：管理網站的**紅綠燈儀表板** https://bnigoldchaptertc.bnigoldchaptertc.workers.dev/dashboard/
+  背後是分會的 Google Apps Script，`update-refdata.js` 以 `?data=<金鑰>` 讀取。金鑰是 LINE 領導團隊群組輸入「儀表板」拿到的連結裡 `?k=` 後面那串，
+  存在 GitHub Actions secret **`DASHBOARD_KEY`**（公開 repo，**絕不寫進檔案或 log**）。Apps Script 回「連結不正確」＝金鑰換了，更新 secret 即可。
+  - 舊來源 https://service-2026-937515995986.us-west1.run.app/ 的數據寫死在網頁程式檔裡，**停在 2026/09/24 不再更新**（出村檢核表數字對不上儀表板就是這個原因）。沒設 `DASHBOARD_KEY` 時腳本會退回讀它並警告。
 
 ## 🚨 2026/09 資料遺失事件（`tracker_v7` 已復原，其餘待補）
 
