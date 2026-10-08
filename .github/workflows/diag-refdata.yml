@@ -1,0 +1,27 @@
+name: 診斷紅綠燈資料來源（暫時，唯讀）
+on:
+  push:
+    branches: [claude/refdata-diag]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 讀取紅綠燈檢視表的網頁與程式檔（只讀）
+        run: |
+          set -x
+          B=https://service-2026-937515995986.us-west1.run.app
+          curl -sSI "$B/" | head -20
+          curl -sS "$B/" -o index.html; cat index.html | head -c 3000; echo
+          JS=$(grep -o '/assets/index-[^"]*\.js' index.html | head -1); echo "BUNDLE=$JS"
+          curl -sSI "$B$JS" | head -20
+          curl -sS "$B$JS" -o b.js; wc -c b.js
+          echo '--- URLs / API 呼叫 ---'
+          grep -oE 'https?://[A-Za-z0-9._/-]+' b.js | sort | uniq -c | sort -rn | head -40
+          grep -oE '"/api/[^"]*"|`/api/[^`]*`|fetch\([^)]{0,80}' b.js | sort -u | head -40
+          for k in firestore firebase googleapis sheets spreadsheets supabase graphql axios XMLHttpRequest EventSource WebSocket; do echo "$k: $(grep -o "$k" b.js | wc -l)"; done
+          echo '--- 王翰鈞 在 bundle 裡的資料 ---'
+          grep -oE '\{id:[0-9]+,name:"王翰鈞",scores:\{[^}]*\}\}' b.js | head -2
+          echo '--- 日期字串 ---'
+          grep -oE '20[0-9]{2}[-/.][0-9]{1,2}[-/.][0-9]{1,2}' b.js | sort | uniq -c | sort -rn | head -20
+          grep -oE '.{60}(rolling6Months|rolling3Months|currentMonth|period|weekly)[A-Za-z_]*.{20}' b.js | head -15
+          ls -la; for p in /api /api/members /api/data /data.json /members.json; do echo "$p -> $(curl -s -o /dev/null -w '%{http_code} %{content_type}' $B$p)"; done
