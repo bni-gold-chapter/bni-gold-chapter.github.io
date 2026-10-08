@@ -1,17 +1,16 @@
-// 更新紅綠燈數據 → 寫入 Firebase refdata（網頁即時連動：燈號 / 引薦 / 來賓 / 成交 / 培訓 / 一對一）
-// 用法： DASHBOARD_KEY=<金鑰> node update-refdata.js     （FORCE=1 可強制寫入）
+// 手動補同步紅綠燈數據 → 寫入 Firebase refdata（網頁即時連動：燈號 / 引薦 / 來賓 / 成交 / 培訓 / 一對一）
 //
-// 資料來源（2026/10/08 起）：全鑫分會管理網站的「紅綠燈儀表板」
-//   https://bnigoldchaptertc.bnigoldchaptertc.workers.dev/dashboard/
-// 它背後是分會的 Google Apps Script，用 LINE 領導團隊群組「儀表板」連結裡的金鑰（?k=…）讀取。
-// 金鑰放在 GitHub Actions 的 secret `DASHBOARD_KEY`，**絕對不要寫進 repo**（這是公開 repo）。
-// 金鑰若換了（Apps Script 回「連結不正確」），到 LINE 群組輸入「儀表板」拿新連結，更新 secret 即可。
+// ★ 2026/10/08 起，平常不需要跑這支：分會中樞（管理網站背後的 Google Apps Script，
+//   repo bnigoldchaptertc/bnigoldchaptertc 的 syncOutcheckRefdata_）每週算完紅綠燈後、以及每小時檢查時，
+//   會直接把數據寫進 refdata。不經過 LINE、不需要任何金鑰。
 //
-// 舊來源 service-2026-…run.app（前副主席的 React 檢視表）的數據寫死在網頁程式檔裡，
-// 停在 2026/09/24 不再更新 —— 出村檢核表的數字跟儀表板對不上就是因為還在讀它。
-// 沒設定 DASHBOARD_KEY 時仍會退回讀舊來源，但會大聲警告。
+// 這支只留作「中樞暫時壞掉時的手動補救」：
+//   DASHBOARD_KEY=<金鑰> node update-refdata.js     （FORCE=1 可強制寫入）
+// 金鑰是 LINE 領導團隊群組「儀表板」連結裡 ?k= 後面那串，放 GitHub secret DASHBOARD_KEY，絕不寫進 repo。
+//
+// ⚠️ 不再讀前副主席的舊紅綠燈檢視表（service-2026-…run.app）：那份數據寫死在網頁裡、停在 2026/09/24，
+//   以前每週日自動抓它，就是出村檢核表數字跟儀表板對不上的原因；再抓只會把中樞同步的新數據蓋回舊的。
 const DASH_API = 'https://script.google.com/macros/s/AKfycbyrqyy6zxRb4sGmMPOdQTRRgbfdDu5RmaoaOXK0k5xic9XaRdM_lyBDcT5fOUl0v6aCYg/exec';
-const OLD_BASE = 'https://service-2026-937515995986.us-west1.run.app';
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
 const fb = require('./fb-auth');
 
@@ -37,36 +36,14 @@ async function fromDashboard(key) {
   return { members, meta: { source: '紅綠燈儀表板', period: d.period || '', sourceUpdated: d.updated || '' } };
 }
 
-async function fromOldSite() {
-  const num = (s, k) => {
-    const m = s.match(new RegExp(k + ':(-?[0-9.eE+]+)'));
-    return m ? Number(m[1]) : 0;
-  };
-  const idx = await (await fetch(`${OLD_BASE}/`)).text();
-  const bm = idx.match(/\/assets\/index-[^"]+\.js/);
-  if (!bm) throw new Error('找不到 bundle');
-  const js = await (await fetch(OLD_BASE + bm[0])).text();
-  const rx = /\{id:\d+,name:"([^"]+)",scores:\{([^}]*)\}\}/g;
-  const members = {};
-  let m;
-  while ((m = rx.exec(js)) !== null) {
-    const s = {};
-    ['trafficLightScore', 'rolling6Months_referralDeficitWeekly', 'rolling6Months_oneToOneDeficitBiweekly',
-     'rolling6Months_guestDeficit', 'rolling6Months_trainingDeficit', 'rolling6Months_businessValueDeficit']
-      .forEach(k => { s[k] = num(m[2], k); });
-    members[m[1]] = pick(s);
-  }
-  return { members, meta: { source: '舊紅綠燈檢視表（停在 2026/09/24）', bundle: bm[0] } };
-}
-
 (async () => {
   const key = (process.env.DASHBOARD_KEY || '').trim();
-  let got;
-  if (key) got = await fromDashboard(key);
-  else {
-    console.warn('⚠ 沒有設定 DASHBOARD_KEY，退回讀舊紅綠燈檢視表 —— 那裡的數據停在 2026/09/24，不是最新的。');
-    got = await fromOldSite();
+  if (!key) {
+    console.log('紅綠燈數據由分會中樞自動同步（每週更新後＋每小時檢查），這裡不需要執行。');
+    console.log('中樞故障要手動補同步時，才需要設定 GitHub secret DASHBOARD_KEY 再執行。');
+    return;   // 不寫入：絕不拿舊數據蓋掉中樞同步的新數據
   }
+  const got = await fromDashboard(key);
   const { members } = got;
   const count = Object.keys(members).length;
   if (!count) throw new Error('解析不到會員資料（對方網站結構可能改了）');
