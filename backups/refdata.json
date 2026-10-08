@@ -3,15 +3,15 @@
     "余政學": {
       "biz": 334424,
       "guest": 5,
-      "light": 85,
+      "light": 75,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "劉紜綺": {
-      "biz": 649413,
-      "guest": 0,
-      "light": 80,
+      "biz": 645913,
+      "guest": 7,
+      "light": 70,
       "o2o": 0,
       "ref": 0,
       "train": 0
@@ -26,31 +26,31 @@
     },
     "吳至軒": {
       "biz": 605490,
-      "guest": 0,
-      "light": 80,
+      "guest": 3,
+      "light": 75,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "夏振異": {
       "biz": 733700,
-      "guest": 0,
-      "light": 70,
+      "guest": 6,
+      "light": 65,
       "o2o": 0,
-      "ref": 0,
+      "ref": 5,
       "train": 0
     },
     "崔志偉": {
-      "biz": 176415,
+      "biz": 156039,
       "guest": 7,
-      "light": 85,
+      "light": 75,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "張嘉信": {
       "biz": 590074,
-      "guest": 1,
+      "guest": 8,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -60,13 +60,13 @@
       "biz": 414290,
       "guest": 11,
       "light": 60,
-      "o2o": 6,
+      "o2o": 7,
       "ref": 0,
       "train": 0
     },
     "張瓊文": {
-      "biz": 722520,
-      "guest": 5,
+      "biz": 722140,
+      "guest": 12,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -82,7 +82,7 @@
     },
     "張藝鏹": {
       "biz": 0,
-      "guest": 3,
+      "guest": 10,
       "light": 80,
       "o2o": 0,
       "ref": 0,
@@ -90,42 +90,42 @@
     },
     "彭孔緯": {
       "biz": 795120,
-      "guest": 5,
-      "light": 60,
-      "o2o": 0,
+      "guest": 12,
+      "light": 55,
+      "o2o": 1,
       "ref": 0,
       "train": 4
     },
     "李佩珊": {
       "biz": 571654,
-      "guest": 0,
-      "light": 75,
-      "o2o": 0,
+      "guest": 8,
+      "light": 60,
+      "o2o": 5,
       "ref": 0,
       "train": 0
     },
     "李哲維": {
       "biz": 0,
-      "guest": 0,
+      "guest": 5,
       "light": 90,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "李文皓": {
-      "biz": 800000,
-      "guest": 1,
-      "light": 30,
-      "o2o": 1,
-      "ref": 2,
-      "train": 6
+      "biz": 780410,
+      "guest": 2,
+      "light": 65,
+      "o2o": 0,
+      "ref": 0,
+      "train": 2
     },
     "林家豪": {
-      "biz": 800000,
-      "guest": 0,
-      "light": 45,
-      "o2o": 3,
-      "ref": 5,
+      "biz": 798002,
+      "guest": 2,
+      "light": 50,
+      "o2o": 0,
+      "ref": 3,
       "train": 4
     },
     "林永恩": {
@@ -133,12 +133,12 @@
       "guest": 12,
       "light": 60,
       "o2o": 0,
-      "ref": 11,
+      "ref": 12,
       "train": 0
     },
     "林沛綺": {
       "biz": 333098,
-      "guest": 3,
+      "guest": 10,
       "light": 75,
       "o2o": 0,
       "ref": 0,
@@ -146,23 +146,23 @@
     },
     "林淙仁": {
       "biz": 0,
-      "guest": 5,
+      "guest": 12,
       "light": 85,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "林群哲": {
-      "biz": 615000,
+      "biz": 598000,
       "guest": 13,
       "light": 55,
-      "o2o": 22,
-      "ref": 11,
+      "o2o": 23,
+      "ref": 8,
       "train": 0
     },
     "梁奇雲": {
       "biz": 0,
-      "guest": 3,
+      "guest": 10,
       "light": 75,
       "o2o": 0,
       "ref": 0,
@@ -171,29 +171,29 @@
     "楊有成": {
       "biz": 781200,
       "guest": 6,
-      "light": 45,
-      "o2o": 0,
-      "ref": 5,
+      "light": 40,
+      "o2o": 2,
+      "ref": 6,
       "train": 6
     },
     "楊稚楹": {
       "biz": 0,
-      "guest": 4,
+      "guest": 12,
       "light": 80,
-      "o2o": 8,
+      "o2o": 22,
       "ref": 0,
       "train": 0
     },
     "江孟撰": {
       "biz": 288800,
       "guest": 7,
-      "light": 80,
+      "light": 65,
       "o2o": 0,
-      "ref": 7,
+      "ref": 8,
       "train": 0
     },
     "洪倧勝": {
-      "biz": 779200,
+      "biz": 759200,
       "guest": 12,
       "light": 70,
       "o2o": 0,
@@ -210,7 +210,7 @@
     },
     "潘仕旻": {
       "biz": 651504,
-      "guest": 4,
+      "guest": 11,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -218,23 +218,23 @@
     },
     "王天暘": {
       "biz": 800000,
-      "guest": 1,
-      "light": 30,
-      "o2o": 5,
-      "ref": 6,
+      "guest": 2,
+      "light": 25,
+      "o2o": 7,
+      "ref": 8,
       "train": 6
     },
     "王翰鈞": {
-      "biz": 800000,
-      "guest": 0,
-      "light": 30,
-      "o2o": 5,
-      "ref": 6,
+      "biz": 798200,
+      "guest": 2,
+      "light": 50,
+      "o2o": 3,
+      "ref": 0,
       "train": 6
     },
     "石秝軒": {
       "biz": 760900,
-      "guest": 5,
+      "guest": 12,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -242,14 +242,14 @@
     },
     "莊晴全": {
       "biz": 0,
-      "guest": 3,
+      "guest": 10,
       "light": 85,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "蔡子淵": {
-      "biz": 687030,
+      "biz": 682000,
       "guest": 12,
       "light": 70,
       "o2o": 0,
@@ -257,8 +257,8 @@
       "train": 0
     },
     "蔡家銘": {
-      "biz": 517954,
-      "guest": 4,
+      "biz": 487954,
+      "guest": 12,
       "light": 55,
       "o2o": 0,
       "ref": 0,
@@ -266,7 +266,7 @@
     },
     "許柏祥": {
       "biz": 789490,
-      "guest": 2,
+      "guest": 7,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -281,11 +281,11 @@
       "train": 0
     },
     "賴俊穎": {
-      "biz": 521260,
-      "guest": 4,
-      "light": 60,
+      "biz": 466260,
+      "guest": 11,
+      "light": 55,
       "o2o": 0,
-      "ref": 4,
+      "ref": 9,
       "train": 0
     },
     "賴冠仁": {
@@ -293,12 +293,12 @@
       "guest": 3,
       "light": 40,
       "o2o": 0,
-      "ref": 8,
+      "ref": 9,
       "train": 2
     },
     "邱士傑": {
-      "biz": 627020,
-      "guest": 4,
+      "biz": 626076,
+      "guest": 11,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -307,14 +307,14 @@
     "陳廷澐": {
       "biz": 0,
       "guest": 11,
-      "light": 75,
+      "light": 80,
       "o2o": 0,
-      "ref": 3,
+      "ref": 0,
       "train": 0
     },
     "陳建中": {
       "biz": 0,
-      "guest": 1,
+      "guest": 9,
       "light": 80,
       "o2o": 0,
       "ref": 0,
@@ -322,7 +322,7 @@
     },
     "陳睿騰": {
       "biz": 0,
-      "guest": 5,
+      "guest": 13,
       "light": 75,
       "o2o": 0,
       "ref": 0,
@@ -330,7 +330,7 @@
     },
     "陳雨震": {
       "biz": 0,
-      "guest": 3,
+      "guest": 10,
       "light": 80,
       "o2o": 0,
       "ref": 0,
@@ -338,7 +338,7 @@
     },
     "陸偉琛": {
       "biz": 0,
-      "guest": 2,
+      "guest": 11,
       "light": 75,
       "o2o": 0,
       "ref": 0,
@@ -354,23 +354,23 @@
     },
     "高珮翎": {
       "biz": 0,
-      "guest": 2,
+      "guest": 10,
       "light": 80,
       "o2o": 0,
       "ref": 0,
       "train": 0
     },
     "黃奕樺": {
-      "biz": 795040,
-      "guest": 0,
-      "light": 75,
+      "biz": 787540,
+      "guest": 5,
+      "light": 70,
       "o2o": 0,
-      "ref": 0,
+      "ref": 2,
       "train": 0
     },
     "黃永帝": {
       "biz": 759084,
-      "guest": 1,
+      "guest": 8,
       "light": 70,
       "o2o": 0,
       "ref": 0,
@@ -378,7 +378,7 @@
     },
     "黃騰瑤": {
       "biz": 334699,
-      "guest": 2,
+      "guest": 11,
       "light": 75,
       "o2o": 0,
       "ref": 0,
@@ -386,7 +386,9 @@
     }
   },
   "meta": {
-    "bundle": "/assets/index-Donxrrix.js",
-    "updatedAt": "2026/10/8 06:39:05"
+    "period": "2026-04-02 ~ 2026-10-01",
+    "source": "紅綠燈儀表板",
+    "sourceUpdated": "2026-10-08 06:58",
+    "updatedAt": "2026/10/8 09:19:16"
   }
 }
