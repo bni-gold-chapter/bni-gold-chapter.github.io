@@ -177,6 +177,7 @@ node check-data.js      # 透過 fb-auth.js 匿名登入後讀取，只讀不寫
 
 - **`index.html`** — 出村檢核追蹤表（單檔 HTML+CSS+JS）
 - **`bio.html`** — 四加一表填寫系統，含匯出 PPT／PDF。
+- **`vcp.html`** — VCP 互評月度分析（資料在 `vcp_v1`，紅綠燈讀 `refdata`），詳見 CLAUDE.md。
   ⚠️ 改它的 PPT 匯出後**一定要用嚴格 XML parser 驗證**，
   不能只看 LibreOffice 的渲染結果（LibreOffice 會自動修復，PowerPoint 會整頁消失）
 - 網址：https://bni-gold-chapter.github.io/ ｜ 四加一表：`/bio.html`
