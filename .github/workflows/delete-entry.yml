@@ -35,6 +35,7 @@ jobs:
       - name: 刪除
         env:
           CONFIRM: ${{ inputs.confirm }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
         run: node delete-entry.js '${{ inputs.node }}' '${{ inputs.key }}'
 
       - name: 把刪除前的整個節點存進 repo

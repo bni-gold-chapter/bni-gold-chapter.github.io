@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
 const fb = require('./fb-auth');
+const crypt = require('./backup-crypt');   // 快照加密存檔（公開 repo），需要 BACKUP_KEY
 const DIR = path.join(__dirname, 'backups', '_pre-delete');
 
 const [node, key] = process.argv.slice(2);
@@ -27,14 +28,14 @@ const get = async p => {
     throw new Error(`確認失敗：請設定 CONFIRM=${key}（把 key 再打一次，避免誤刪）`);
   }
 
+  crypt.keyFrom();   // 沒有鑰匙就存不了刪除前快照 → 先停下，什麼都不刪
   const before = await get(node);
   if (!before || typeof before !== 'object') throw new Error(`節點 ${node} 是空的或不是物件，沒有東西可刪。`);
   if (!(key in before)) throw new Error(`${node} 底下沒有 ${key}，不做任何事。`);
 
   // 鐵則 #2：動雲端之前先把整個節點存下來
   fs.mkdirSync(DIR, { recursive: true });
-  const snap = path.join(DIR, `${node}.${stamp()}.json`);
-  fs.writeFileSync(snap, JSON.stringify(before, null, 2) + '\n');
+  const snap = crypt.writeBackup(path.join(DIR, `${node}.${stamp()}.json`), JSON.stringify(before, null, 2) + '\n');
 
   const target = before[key];
   const data = (target && target.data) || {};

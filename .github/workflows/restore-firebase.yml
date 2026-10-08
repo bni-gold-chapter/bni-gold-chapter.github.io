@@ -30,6 +30,7 @@ jobs:
       - name: 還原
         env:
           CONFIRM: ${{ inputs.confirm }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
         run: node restore-firebase.js '${{ inputs.node }}'
 
       - name: 把還原前的雲端現況一起存進 repo

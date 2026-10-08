@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const FB = 'https://bni-tracker-b3ef8-default-rtdb.firebaseio.com';
 const fb = require('./fb-auth');
+const crypt = require('./backup-crypt');   // 備份是加密檔（<節點>.json.enc），需要 BACKUP_KEY
 const DIR = path.join(__dirname, 'backups');
 
 const node = process.argv[2];
@@ -25,8 +26,8 @@ const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   }
 
   const file = path.join(DIR, `${node}.json`);
-  if (!fs.existsSync(file)) throw new Error(`找不到備份檔 ${path.relative(__dirname, file)}`);
-  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const data = crypt.readBackup(file);
+  if (data === undefined) throw new Error(`找不到備份檔 ${path.relative(__dirname, file)}(.enc)`);
   if (data == null || count(data) === 0) {
     throw new Error(`備份檔 ${node}.json 是空的 —— 用它還原只會把雲端也清空，拒絕執行。`);
   }
@@ -36,8 +37,7 @@ const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   let curVal = null;
   try { curVal = JSON.parse(cur); } catch (e) { /* 讀不動就當成空的，照樣往下走 */ }
   fs.mkdirSync(path.join(DIR, '_pre-restore'), { recursive: true });
-  const pre = path.join(DIR, '_pre-restore', `${node}.${stamp()}.json`);
-  fs.writeFileSync(pre, JSON.stringify(curVal, null, 2) + '\n');
+  const pre = crypt.writeBackup(path.join(DIR, '_pre-restore', `${node}.${stamp()}.json`), JSON.stringify(curVal, null, 2) + '\n');
 
   console.log(`節點　　：${node}`);
   console.log(`雲端現況：${count(curVal)} 筆　→ 已存到 ${path.relative(__dirname, pre)}`);

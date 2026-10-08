@@ -35,8 +35,10 @@
 
 1. **動任何雲端資料前，先備份。** 沒有例外。
    ```bash
-   node backup-firebase.js      # 匯出到 backups/，git 歷史就是離線備份
+   BACKUP_KEY=… node backup-firebase.js   # 加密匯出到 backups/*.json.enc，git 歷史就是離線備份
    ```
+   備份是**加密檔**（公開 repo，2026/10/08 起），鑰匙是 GitHub secret `BACKUP_KEY`，由使用者／系統保管人另外保存。
+   **絕對不要把解開的明文 JSON commit 進 repo。**
 
 2. **還原（restore）前，先確認備份比現況新。**
    2026/09 就是有人用**更舊**的備份還原，造成：三位村民進度歸零、備註倒退、
@@ -150,8 +152,9 @@ node check-data.js      # 透過 fb-auth.js 匿名登入後讀取，只讀不寫
 3. 找可信的來源，**至少兩個互相印證**再動作：
    - `backups/` 資料夾的**歷史版本**（最可靠）：
      ```bash
-     git log --oneline -- backups/tracker_v7.json
-     git show <commit>:backups/tracker_v7.json
+     git log --oneline -- backups/tracker_v7.json.enc
+     git show <commit>:backups/tracker_v7.json.enc > t.enc && BACKUP_KEY=… node backup-crypt.js decrypt t.enc
+     # 2026/10/08 以前的版本是明文 backups/tracker_v7.json
      ```
    - 使用者自己從網頁「⚙️ 工具 → 備份」下載的 `新會員檢核進度.json`
    - 導師裝置上的瀏覽器快取（網頁有救援機制，會提示「下載救援檔」）

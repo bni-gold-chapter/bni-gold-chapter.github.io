@@ -78,13 +78,20 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 ### 離線備份與還原（`backups/`）
 
 - **`backup-firebase.js`** ＋ **`backup-firebase.yml`**：每小時第 17 分（2026/10/07 起，原本每天一次；為了四加一表改一次就留一版）
-  把每個節點匯出成 `backups/<節點>.json`（一個節點一個檔，沒變動的節點產生
+  把每個節點匯出成 `backups/<節點>.json.enc`（一個節點一個檔，沒變動的節點產生
   一模一樣的位元組，git 不會存新 blob，repo 不會因為頻繁備份而膨脹），
   內容有變才 commit。
   - 物件鍵會排序後輸出（`stable()`），所以同樣的資料永遠產生同樣的檔案；
     陣列保持原順序（檢核列序、名單順序都有意義）。
   - **`_manifest.json` 刻意不放時間戳** —— 放了就每天都會多一個假 commit。
     「什麼時候備份的」由 git commit 自己記錄。
+- 🔒 **備份一律加密（2026/10/08 起，`backup-crypt.js`）**：這是**公開 repo**，明文備份等於把四加一表的地址、照片、
+  全分會紅綠燈分數公開在 GitHub 上。現在寫成 AES-256-GCM 加密檔 `*.json.enc`，鑰匙是 Actions secret **`BACKUP_KEY`**
+  （一句 ≥16 字的密語，**另外抄一份收好，弄丟就打不開任何備份**）。
+  - IV 由 HMAC(內容) 決定 → 同樣內容永遠得到同樣密文，「沒變就不 commit」照樣成立。
+  - 沒有 `BACKUP_KEY` 時備份／還原／刪除三支腳本都會**直接拒絕執行**，絕不退回寫明文。
+  - 解開來看：`BACKUP_KEY=… node backup-crypt.js decrypt backups/<節點>.json.enc`；確認鑰匙對：`node backup-crypt.js check`。
+  - ⚠️ **git 歷史裡 2026/10/08 以前的明文備份還在**（只是最新版本變成加密檔）。要徹底清掉需要改寫 repo 歷史，另案處理。
 - ⚠️ **最重要的一條**：讀到的節點是空的、或整個從根節點消失時，
   **絕對不覆蓋既有備份**，保留舊檔並以非零結束讓 workflow 變紅。
   少了這道防護，資料被刪後的下一次排程就會把備份一起清掉 —— 那正是這次
@@ -96,13 +103,13 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
   但**寫還原資料時別以為 `null` 會原樣存回來**。
 - **`delete-entry.js`** ＋ **`delete-entry.yml`**：刪掉某節點底下的**單獨一筆**
   （重複建立的四加一表、測試資料…）。只對目標 key 發 `DELETE`，**其餘的鍵連碰都不碰**；
-  刪除前先把整個節點存成 `backups/_pre-delete/<節點>.<時間>.json`，刪完讀回來確認
+  刪除前先把整個節點存成 `backups/_pre-delete/<節點>.<時間>.json.enc`（加密），刪完讀回來確認
   目標消失且其他鍵一個都沒少（少了就報錯並指出要用哪個快照還原）。
   必須把 key 再打一次填進 `confirm`。
 - **`restore-firebase.js`** ＋ **`restore-firebase.yml`**：從 repo 的備份還原
   某個節點。會覆蓋雲端，所以刻意做成不可能手滑跑到：
   必須把節點名字再打一次填進 `confirm`（腳本則是 `CONFIRM=<節點名>`）。
-  還原前先把雲端現況存成 `backups/_pre-restore/<節點>.<時間>.json`（鐵則 #2），
+  還原前先把雲端現況存成 `backups/_pre-restore/<節點>.<時間>.json.enc`（加密，鐵則 #2），
   寫完會讀回來比對筆數，不只相信 HTTP 200。備份檔是空的就拒絕執行。
 
 ### 四加一表的本機備份（`bio_draft_<key>`）
@@ -220,7 +227,7 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 | 「備份一下」 | 觸發 `backup-firebase.yml`（每小時本來就會自動跑，有變動才 commit）|
 | 「規則收緊了嗎／貼完規則要驗收」 | 觸發 `verify-rules.yml`。只讀不刪，會檢查「外人讀不到、自己人讀得到、根節點鎖住了」三件事 |
 | 「某人有兩筆四加一表／刪掉某一筆」 | 觸發 `delete-entry.yml`（node 選節點，key 填那筆的 key，confirm 再打一次同樣的 key）。**不要用 `restore-firebase.yml` 做這件事** —— 那是整個節點 PUT 回去，會把其他人的資料一起重寫，有人正在編輯就被蓋掉。`delete-entry.js` 只對目標 key 發 DELETE，刪完會讀回來確認其他鍵一個都沒少 |
-| 「補封存區某人的導師／行業／出村日期」 | 改 `backups/archive_v1.json` 對應那筆的 `mentor`／`ind`／`join`／`archivedAt`（`archivedAt` 格式同 `fmtT()`：`2026/08/27 14:30:00`）→ push → 觸發 `restore-firebase.yml`（node 與 confirm 都填 `archive_v1`）。**備份檔就是可編輯的來源**，不必手動改雲端 |
+| 「補封存區某人的導師／行業／出村日期」 | 先 `node backup-crypt.js decrypt backups/archive_v1.json.enc > a.json` 解開，改 `a.json` 對應那筆的 `mentor`／`ind`／`join`／`archivedAt`（`archivedAt` 格式同 `fmtT()`：`2026/08/27 14:30:00`）→ `node backup-crypt.js encrypt a.json backups/archive_v1.json.enc` 鎖回去、**刪掉 `a.json`（明文不可進 repo）** → push → 觸發 `restore-firebase.yml`（node 與 confirm 都填 `archive_v1`）。都需要 `BACKUP_KEY` |
 
 ## ⚠️ 鐵則
 
@@ -243,6 +250,8 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 
 1. **GitHub**：組織 `bni-gold-chapter` 的 Owner 權限（新任加入 → 舊任退出，網址與資料都不動）
 2. **Firebase**：`bni-tracker-b3ef8` 專案的擁有者權限（Google 帳號）
+2.5 **備份鑰匙 `BACKUP_KEY`**（2026/10/08 起）：離線備份的解密密語。GitHub secret 設了之後**誰都看不到內容**，
+   所以一定要另外有一份紙本或存在保管人的密碼管理器裡，交接時當面交給新任。沒有它，備份檔就只是亂碼
 3. **[交接手冊.md](交接手冊.md)** —— 給新任協調員本人的操作手冊（不需程式背景）。
    有人問「怎麼交接／新任要看什麼」時，請指向這份，不要叫他讀 CLAUDE.md。
 4. 本檔案與 README.md 是給 AI 與工程人員看的補充資料

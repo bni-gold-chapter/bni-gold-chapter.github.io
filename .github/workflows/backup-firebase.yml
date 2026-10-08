@@ -31,8 +31,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: 匯出各節點
+      - name: 匯出各節點（加密）
         run: node backup-firebase.js
+        env:
+          # 公開 repo：備份加密後才進 git。鑰匙在 Settings → Secrets and variables → Actions。
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
 
       - name: 有變動才 commit
         if: always()          # 上一步因為「雲端是空的」而失敗時，仍要把它保住的舊備份留下
