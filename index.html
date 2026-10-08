@@ -900,7 +900,7 @@ function applyRefdata(rd){
   if(!editing) render();
   updateRefStamp();
 }
-function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&REFMETA){ el.textContent='｜ 數據來源：紅綠燈檢視表 · 更新 '+(REFMETA.updatedAt||''); } }
+function updateRefStamp(){ const el=document.getElementById('refstamp'); if(el&&REFMETA){ el.textContent='｜ 數據來源：'+(REFMETA.source||'紅綠燈檢視表')+(REFMETA.period?' · 期間 '+REFMETA.period:'')+' · 更新 '+(REFMETA.updatedAt||''); } }
 
 /* ====== 村民唯讀預覽 ====== */
 function initViewOnly(){

@@ -47,7 +47,11 @@
   - `archive_v1`：已出村封存（完整檢核快照）
   - `refdata`：紅綠燈檢視表數據（燈號/引薦/來賓/成交/培訓/一對一），依**姓名**對應
   - `logs_v1`：操作紀錄
-- **資料來源**：分會紅綠燈檢視表 https://service-2026-937515995986.us-west1.run.app/ （無 CORS，瀏覽器抓不到，必須用腳本抓）
+- **資料來源（2026/10/08 起）**：**分會中樞自動同步**。管理網站背後的 Google Apps Script（repo `bnigoldchaptertc/bnigoldchaptertc`，
+  `apps_script/Code.gs` 的 `syncOutcheckRefdata_`）每週日算完紅綠燈後、以及每小時檢查一次，**直接寫入本專案 Firebase 的 `refdata`**，
+  內容有變才寫。不經過 LINE、不需要金鑰。數字和管理網站的紅綠燈儀表板 https://bnigoldchaptertc.bnigoldchaptertc.workers.dev/dashboard/ 一致。
+  - `update-refdata.js`／`update-refdata.yml` 只留作中樞故障時的**手動補救**（需 GitHub secret `DASHBOARD_KEY`＝LINE「儀表板」連結的 `?k=`），**已拿掉每週排程**。
+  - ⚠️ 舊來源 https://service-2026-937515995986.us-west1.run.app/ 的數據寫死在網頁裡、**停在 2026/09/24**，已完全不再讀取（以前每週日抓它，就是出村檢核表數字對不上儀表板的原因）。
 
 ## 🚨 2026/09 資料遺失事件（`tracker_v7` 已復原，其餘待補）
 
@@ -211,7 +215,7 @@ commit，**git 歷史就是離線、有版本的備份**。見下方「離線備
 
 | 使用者說 | 你要做 |
 |---|---|
-| 「更新數據」 | **已自動化**：GitHub Actions 每週日 21:30（台灣時間）抓紅綠燈檢視表，內容有變才寫入 refdata（腳本內建變化偵測）。要立即更新：觸發該 workflow（Actions 頁 Run workflow，或由 AI 經 API 觸發）；本機亦可 `node update-refdata.js`。注意：repo 60 天無 commit 時 GitHub 會停用排程，重新啟用即可 |
+| 「更新數據」 | **已自動化（2026/10/08 起由分會中樞同步）**：中樞每週日算完紅綠燈就寫入 refdata，另每小時檢查一次。要立即同步：在中樞 Apps Script 編輯器執行 `syncOutcheckRefdata`，或在 LINE 領導群組輸入「更新報表」（重算後自動同步）。中樞故障時才用本 repo 的 `update-refdata.yml`（需 secret `DASHBOARD_KEY`） |
 | 「某某出村了，封存」 | **網頁即可操作**（2026/07 起）：⚙️ 工具 → 協調員模式（密碼 8888）→ 該員 100% 時卡片上的「🎓 完成出村」，會自動備份到 `backups_v1` 再搬進 `archive_v1`。亦可用 `archive-graduates.js` 腳本模式 |
 | 「新增會員」 | **網頁即可操作**：協調員模式 → 總覽底部「➕ 新增村民」表單（加入 17 項）。AI／批次新增：觸發 GitHub Actions「新增村民」workflow，members 填 JSON 陣列（沿用 `add-member.js`，會自動備份到 `backups_v1`）。刪除（非出村）仍用 `migrate-remove-member.js` 模式搬遷 |
 | 「改某某的資料（導師/入會時間/行業…）」 | 觸發 GitHub Actions「修改村民資料」workflow，edits 填 JSON 陣列（沿用 `edit-member.js`，會自動備份到 `backups_v1`）|
